@@ -12,8 +12,8 @@ cd /gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/
 
 
 
-#export CYBERGYM_API_KEY=cybergym-030a0cd7-5908-4862-8ab9-91f2bfc7b56d
-export ANTHROPIC_API_KEY="sk-xxxxxx"
+# export CYBERGYM_API_KEY="${CYBERGYM_API_KEY:-}"
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
 export ANTHROPIC_BASE_URL="http://10.17.10.67:31542/"
 
 CYBERGYM_DATA_DIR=/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/cybergym_data/data-heyu/cybergym/data

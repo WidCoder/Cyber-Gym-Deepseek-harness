@@ -48,7 +48,7 @@ declare -a PIDS=()
 for h in "${HOSTS[@]}"; do
     echo ">> 节点 ${h} 执行 stop_all_one_node.sh"
     ssh -n "$h" "
-cd /gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangxiaomeng/cybergym/glm_5_1_scripts/distribute_scripts && ./stop_all_one_node.sh
+cd /gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/glm_5_1_scripts/distribute_scripts && ./stop_all_one_node.sh
 " &
     PIDS+=("$!")
 done

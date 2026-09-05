@@ -9,7 +9,7 @@ set -euo pipefail
 #  ⚠️ 修改为自己目录地址
 ############################################################
 # 所有脚本、输出文件都放在这个根目录下
-ROOT_DIR="/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangxiaomeng/cybergym"
+ROOT_DIR="/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym"
 
 ############################################################
 #  ⚠️ 常用修改项 1 / 5
@@ -22,10 +22,15 @@ MODEL="jt35"
 #   true：Claude‑Code调用外部Anthropic网关，自动开启socks5h://10.17.9.218:1080
 
 USE_DATATANG_API="false"
-ANTHROPIC_AUTH_TOKEN="sk-xxxxxx"
+ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
 ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-${MODEL}}"
 ANTHROPIC_BASE_URL="https://llmapi.datatang.com/v1/"
 CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS="1"
+HARNESS_TYPE="${HARNESS_TYPE:-claude}"
+DEEPSEEK_IMAGE="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"
+OPENCODE_IMAGE="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-flash}"
+SERVER_PORT="${SERVER_PORT:-8666}"
 
 ############################################################
 #  ⚠️ 常用修改项 2 / 5
@@ -42,7 +47,7 @@ EXP="jt35b-eval-cyber-v0.0.8-test"
 TIMEOUT=15000
 PER_NODE_PROCESS=8    # 每个评测节点IP同时解决多少道题目，也是该node下worker文件夹数量
 
-bash /gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangxiaomeng/cybergym/glm_5_1_scripts/distribute_scripts/dis_stop_all.sh --hostfile ${HOST_FILE}
+bash "${ROOT_DIR}/glm_5_1_scripts/distribute_scripts/dis_stop_all.sh" --hostfile "${HOST_FILE}"
 
 ############################################################
 #  ⚠️ 常用修改项 3 / 5
@@ -64,7 +69,7 @@ REMOTE_WORK_DIR="${ROOT_DIR}/glm_5_1_scripts/distribute_scripts"
 #  ⚠️ 常用修改项 4 / 5
 ############################################################
 # run_cc脚本路径
-RUN_CC_SCRIPT_PATH="${ROOT_DIR}/harness/run_cc_v9.py"
+RUN_CC_SCRIPT_PATH="${ROOT_DIR}/harness_selector.py"
 
 # 评测结果输出根目录
 OUT_ROOT="${ROOT_DIR}/output"
@@ -131,8 +136,16 @@ while [[ $# -gt 0 ]]; do
         --root-dir)
             ROOT_DIR="$2"
             REMOTE_WORK_DIR="${ROOT_DIR}/glm_5_1_scripts/distribute_scripts"
-            RUN_CC_SCRIPT_PATH="${ROOT_DIR}/cybergym-main/run_cc_v9.py"
+            RUN_CC_SCRIPT_PATH="${ROOT_DIR}/harness_selector.py"
             OUT_ROOT="${ROOT_DIR}/output"
+            shift 2
+            ;;
+        --harness)
+            HARNESS_TYPE="$2"
+            shift 2
+            ;;
+        --server-port)
+            SERVER_PORT="$2"
             shift 2
             ;;
         -h|--help)
@@ -146,6 +159,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "${HARNESS_TYPE}" != "claude" ]]; then
+    : "${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY must be exported for ${HARNESS_TYPE}}"
+    export DEEPSEEK_API_KEY
+fi
 
 
 
@@ -190,7 +208,7 @@ echo "Loaded ${NUM_NODES} hosts from ${HOST_FILE}: ${HOSTS[*]}"
 
 
 
-if [[ "${USE_DATATANG_API}" == "true" ]]; then
+if [[ "${HARNESS_TYPE}" == "claude" && "${USE_DATATANG_API}" == "true" ]]; then
     if [[ -z "${ANTHROPIC_BASE_URL}" || -z "${ANTHROPIC_AUTH_TOKEN}" ]]; then
         echo "[ERROR] USE_DATATANG_API=true 必须配置 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN" >&2
         exit 1
@@ -249,9 +267,9 @@ for node_rank in "${!HOSTS[@]}"; do
     host="${HOSTS[${node_rank}]}"
     echo ">> Submit node ${host} node_rank=${node_rank}"
 
-    ssh -n "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
+    ssh -n -o SendEnv=DEEPSEEK_API_KEY "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
 
-    ssh -n "${host}" "
+    ssh -n -o SendEnv=DEEPSEEK_API_KEY "${host}" "
         export USE_DATATANG_API='${USE_DATATANG_API}';
         export ANTHROPIC_AUTH_TOKEN='${ANTHROPIC_AUTH_TOKEN}';
         export ANTHROPIC_MODEL='${ANTHROPIC_MODEL}';
@@ -260,6 +278,11 @@ for node_rank in "${!HOSTS[@]}"; do
         export ROOT_DIR='${ROOT_DIR}';
         export MASTER_SERVER_IP='${host}';
         export LLM_SERVICE_PORT='${LLM_SERVICE_PORT}';
+        export HARNESS_TYPE='${HARNESS_TYPE}';
+        export DEEPSEEK_IMAGE='${DEEPSEEK_IMAGE}';
+        export OPENCODE_IMAGE='${OPENCODE_IMAGE}';
+        export DEEPSEEK_MODEL='${DEEPSEEK_MODEL}';
+        export SERVER_PORT='${SERVER_PORT}';
         ${USE_DATATANG_API:+export ALL_PROXY=socks5h://10.17.9.218:1080;export all_proxy=socks5h://10.17.9.218:1080;}
         if [[ \"\${USE_DATATANG_API}\" == \"false\" ]]; then
             unset ALL_PROXY all_proxy;

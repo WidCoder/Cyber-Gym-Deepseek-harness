@@ -50,9 +50,15 @@ export NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,10.17.9.218,10.17.10.16,10.17.9.2
 export no_proxy=localhost,127.0.0.1,10.0.0.0/8,10.17.9.218,10.17.10.16,10.17.9.219
 
 # API 密钥：从上层环境变量继承，不再硬编码
-export CYBERGYM_API_KEY="${CYBERGYM_API_KEY:-cybergym-030a0cd7-5908-4862-8ab9-91f2bfc7b56d}"
+export CYBERGYM_API_KEY="${CYBERGYM_API_KEY:-}"
 
 # Claude‑Code 模式开关，由上层 dis_launch_all.sh / start_all_one_node.sh 透传
+HARNESS_TYPE="${HARNESS_TYPE:-claude}"
+if [[ "${HARNESS_TYPE}" != "claude" && "${HARNESS_TYPE}" != "deepseek" && "${HARNESS_TYPE}" != "opencode" ]]; then
+  echo "ERROR[worker-${global_rank}]: invalid HARNESS_TYPE=${HARNESS_TYPE}" >&2
+  exit 1
+fi
+export HARNESS_TYPE
 USE_DATATANG_API="${USE_DATATANG_API:-false}"
 export USE_DATATANG_API
 export ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
@@ -65,14 +71,19 @@ export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS="${CLAUDE_CODE_DISABLE_EXPERIMENTA
 LLM_SERVICE_PORT=${LLM_SERVICE_PORT:-31542}
 
 # ✅ 核心改动：不再自行组装 ANTHROPIC_BASE_URL，全部继承父进程环境变量
-if [[ -z "${ANTHROPIC_BASE_URL:-}" ]]; then
+if [[ "${HARNESS_TYPE}" == "claude" && -z "${ANTHROPIC_BASE_URL:-}" ]]; then
   echo "ERROR[worker-${global_rank}]: ANTHROPIC_BASE_URL 环境变量不能为空，上层脚本负责组装" >&2
   exit 1
 fi
 export ANTHROPIC_BASE_URL
 
+if [[ "${HARNESS_TYPE}" != "claude" && -z "${DEEPSEEK_API_KEY:-}" ]]; then
+  echo "ERROR[worker-${global_rank}]: DEEPSEEK_API_KEY must be exported for ${HARNESS_TYPE}" >&2
+  exit 1
+fi
+
 # 打印当前工作模式，便于日志排查
-echo "==== Worker[${global_rank}] Claude‑Code mode: USE_DATATANG_API=${USE_DATATANG_API}, ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL} ===="
+echo "==== Worker[${global_rank}] harness=${HARNESS_TYPE} USE_DATATANG_API=${USE_DATATANG_API} ===="
 
 # ============================================================
 # 3. 参数合法性校验
@@ -141,7 +152,7 @@ if ! [[ "${TIMEOUT}" =~ ^[0-9]+$ ]] || [[ "${TIMEOUT}" -le 0 ]]; then
 fi
 
 # 验证脚本路径，优先上层环境变量，兜底原有硬编码路径
-VERIFY_SCRIPT="${VERIFY_SCRIPT_PATH:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangxiaomeng/cybergym/scripts/verify_agent_result.py}"
+VERIFY_SCRIPT="${VERIFY_SCRIPT_PATH:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/scripts/verify_agent_result.py}"
 if [[ ! -f "${VERIFY_SCRIPT}" ]]; then
   echo "ERROR verify_agent_result.py not found: ${VERIFY_SCRIPT}" >&2
   exit 1
@@ -218,8 +229,11 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
   find "$OUT_DIR/logs" -maxdepth 1 -type d -name "${prefix}-*" -print >"$before_file"
 
   # 6.1 启动 Claude Code Agent 生成 PoC
+  image="${HARNESS_IMAGE:-claude-cybergym:v4}"
+  if [[ "${HARNESS_TYPE}" == "deepseek" ]]; then image="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"; fi
+  if [[ "${HARNESS_TYPE}" == "opencode" ]]; then image="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"; fi
   if ! python "${RUN_CC_SCRIPT}" \
-      --image 'claude-cybergym:v4' \
+      --image "${image}" \
       --model "$MODEL" \
       --log_dir "$OUT_DIR/logs" \
       --tmp_dir "$OUT_DIR/tmp" \

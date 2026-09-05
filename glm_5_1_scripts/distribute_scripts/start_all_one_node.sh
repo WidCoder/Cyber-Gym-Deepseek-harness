@@ -221,9 +221,10 @@ if [[ -z "${MASTER_SERVER_IP:-}" ]]; then
     exit 1
 fi
 export MASTER_SERVER_IP
+ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
 
 # 本地推理模式：强制组装正确URL，覆盖节点旧脏环境残留；网关模式保留上层传入ANTHROPIC_BASE_URL
-if [[ "${USE_DATATANG_API}" == "false" ]]; then
+if [[ "${HARNESS_TYPE:-claude}" == "claude" && "${USE_DATATANG_API}" == "false" ]]; then
     export ANTHROPIC_BASE_URL="http://${MASTER_SERVER_IP}:${LLM_SERVICE_PORT}/"
 fi
 # -------------------------- ✅关键修复块结束 --------------------------
@@ -248,6 +249,13 @@ export TIMEOUT="${timeout}"
 export RERUN_TASK_FILE="${rerun_task_file:-}"
 export CYBERGYM_DATA_DIR="${cybergym_data_dir}"
 export OUT_ROOT="${out_root}"
+export HARNESS_TYPE="${HARNESS_TYPE:-claude}"
+export HARNESS_IMAGE="${HARNESS_IMAGE:-}"
+export DEEPSEEK_IMAGE="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"
+export OPENCODE_IMAGE="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"
+export DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-flash}"
+if [[ "${HARNESS_TYPE}" == "deepseek" ]]; then export HARNESS_IMAGE="${DEEPSEEK_IMAGE}"; fi
+if [[ "${HARNESS_TYPE}" == "opencode" ]]; then export HARNESS_IMAGE="${OPENCODE_IMAGE}"; fi
 # ✅传给start_one_process.sh必须是 round1 / round2，不是裸数字
 export ROUND_I="${ROUND_TAG}"
 
@@ -268,7 +276,7 @@ fi
 
 # 给验证服务专用的环境变量
 export POC_SAVE_DIR
-export SERVER_PORT=8666
+export SERVER_PORT="${SERVER_PORT:-8666}"
 export REPO_DIR="/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main"
 
 # 启动评测server

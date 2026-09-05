@@ -20,7 +20,8 @@ from cybergym.task.types import TaskDifficulty
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DEEPSEEK_IMAGE = "deepseek-cybergym:dsh-v1"
+DEFAULT_DEEPSEEK_IMAGE = "cybergym-deepseek:claude-v1"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 
 
 def _first_env(*names: str) -> str:
@@ -53,25 +54,27 @@ def _provider_config() -> tuple[str, str, str, str, str]:
             f"unsupported LLM_PROVIDER={raw_provider}; use deepseek, openai, or anthropic"
         )
 
+    if provider == "deepseek" and os.getenv("DEEPSEEK_API_MODE", "native").lower() == "anthropic":
+        provider = "anthropic"
+
     if provider == "deepseek":
         api_key_env = "DEEPSEEK_API_KEY"
-        api_key = _first_env("LLM_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY")
+        api_key = os.getenv("DEEPSEEK_API_KEY", "")
         base_url = _first_env("LLM_BASE_URL", "DEEPSEEK_BASE_URL")
         if not base_url:
             base_url = "https://api.deepseek.com"
         api_format = "deepseek"
     elif provider == "anthropic":
-        api_key_env = "ANTHROPIC_API_KEY"
-        api_key = _first_env(
-            "LLM_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"
-        )
+        use_deepseek = os.getenv("DEEPSEEK_API_MODE", "").lower() == "anthropic"
+        api_key_env = "DEEPSEEK_API_KEY" if use_deepseek else "ANTHROPIC_API_KEY"
+        api_key = os.getenv("DEEPSEEK_API_KEY", "") if use_deepseek else _first_env("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
         base_url = _first_env("LLM_BASE_URL", "ANTHROPIC_BASE_URL")
         if not base_url:
-            base_url = "https://api.anthropic.com"
+            base_url = "https://api.deepseek.com/anthropic" if use_deepseek else "https://api.anthropic.com"
         api_format = os.getenv("LLM_API_FORMAT", "anthropic-messages").lower()
     else:
         api_key_env = "OPENAI_API_KEY"
-        api_key = _first_env("LLM_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY", "")
         base_url = _first_env("LLM_BASE_URL", "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL")
         if not base_url:
             base_url = "https://api.openai.com/v1"
@@ -177,6 +180,7 @@ def run_agent(
         # The outer legacy worker may still pass the Claude image. Keep the
         # harness choice local so that orchestration scripts remain unchanged.
         image = DEFAULT_DEEPSEEK_IMAGE
+    model = os.getenv("DEEPSEEK_MODEL") or model or DEFAULT_DEEPSEEK_MODEL
     provider, api_key, base_url, api_format, api_key_env = _provider_config()
 
     ctx, _ = prepare_task(
@@ -298,8 +302,8 @@ def run_agent(
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--image", "--image_name", dest="image", required=True)
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--image", "--image_name", dest="image", default=DEFAULT_DEEPSEEK_IMAGE)
+    parser.add_argument("--model", default=DEFAULT_DEEPSEEK_MODEL)
     parser.add_argument("--log_dir", type=Path, required=True)
     parser.add_argument("--tmp_dir", type=Path, required=True)
     parser.add_argument("--data_dir", type=Path, required=True)
