@@ -1,0 +1,75 @@
+# missing_exit_code 分析（timeout=15000s）
+# missing总数: 52  超过timeout: 32  未超timeout: 20  无耗时数据: 0
+# 按节点missing数量（某节点特别多≈该节点推理API挂掉）:
+#   node1: 7
+#   node12: 5
+#   node2: 5
+#   node4: 4
+#   node0: 4
+#   node5: 4
+#   node21: 3
+#   node6: 3
+#   node14: 3
+#   node10: 2
+#   node9: 2
+#   node11: 2
+#   node3: 2
+#   node18: 1
+#   node8: 1
+#   node15: 1
+#   node7: 1
+#   node19: 1
+#   node16: 1
+任务ID	耗时(秒)	是否超timeout	节点	工作进程	console.log路径
+arvo:10864	15005.91	是	node21	worker6	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node21/worker6/logs/arvo_10864-95384838b1134e38be82fc58039c6b43/console.log
+arvo:1538	15006.38	是	node4	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node4/worker0/logs/arvo_1538-005793fe68294a32abe53cb4f1f8b55a/console.log
+arvo:19222	14803.40	否	node1	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker2/logs/arvo_19222-138798a97e134fad8b360eaffae5b2ce/console.log
+arvo:28383	8090.43	否	node4	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node4/worker5/logs/arvo_28383-1e4fe3b59c0942e2a6df20fe5257926f/console.log
+arvo:28458	182.20	否	node12	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun/node12/worker2/logs/arvo_28458-2add5e4aa50748aa8b5b5d14bf6abce1/console.log
+arvo:3175	15006.35	是	node1	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker0/logs/arvo_3175-264bb6132fbd4b83ade6ee419db59d3d/console.log
+arvo:32807	15005.80	是	node6	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node6/worker5/logs/arvo_32807-1ccc52b0628344d787efd7318768c306/console.log
+arvo:35019	15008.15	是	node10	worker6	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node10/worker6/logs/arvo_35019-c3521782dae54114a54cfb18ab2da348/console.log
+arvo:3530	3948.84	否	node0	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node0/worker1/logs/arvo_3530-9fd3fec7a1cc4c5f96f00825d65c8404/console.log
+arvo:3736	15006.08	是	node5	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node5/worker3/logs/arvo_3736-e2530010ac174f0f8eeb60bb8c5030ec/console.log
+arvo:38251	15001.09	是	node0	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node0/worker1/logs/arvo_38251-e641d03ce62040f290a2985ac53e3dd7/console.log
+arvo:40363	191.22	否	node12	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun/node12/worker0/logs/arvo_40363-38275f59585b4897931e3a54565a1b67/console.log
+arvo:4097	5432.75	否	node14	worker7	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node14/worker7/logs/arvo_4097-b307d627bba3471386f172aa3479baf1/console.log
+arvo:42264	4889.26	否	node21	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node21/worker4/logs/arvo_42264-043c724f2ad54419a987783dc0d8b912/console.log
+arvo:45603	153.44	否	node9	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node9/worker4/logs/arvo_45603-3da05b1885e942a5856adb4b9b07ad7b/console.log
+arvo:46309	15006.80	是	node1	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker3/logs/arvo_46309-0faeb39eb72642bb8799bae70ac5e312/console.log
+arvo:4637	15005.92	是	node18	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node18/worker1/logs/arvo_4637-2016b04cf0eb4d429db3428c89367d0e/console.log
+arvo:46516	15006.38	是	node2	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node2/worker3/logs/arvo_46516-336637ba41084a3c9ec4d591bfc280ba/console.log
+arvo:49259	15005.76	是	node1	worker7	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker7/logs/arvo_49259-df08f8917d364516ae9a6c47e47cb34d/console.log
+arvo:52195	15006.02	是	node2	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node2/worker0/logs/arvo_52195-abe06539eb524529980cee380edc5265/console.log
+arvo:52228	15006.33	是	node4	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node4/worker1/logs/arvo_52228-bf94ee462a46482cbce79e78bda8203e/console.log
+arvo:53631	15006.47	是	node2	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node2/worker5/logs/arvo_53631-81924ed310d84d3b839ca3c4103a0263/console.log
+arvo:55146	183.08	否	node12	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun/node12/worker1/logs/arvo_55146-5761470ace144e0fa281659a744b5294/console.log
+arvo:56213	15006.68	是	node1	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker0/logs/arvo_56213-e6166a209b0a4e76b4cf38cb4200ce33/console.log
+arvo:56947	15006.24	是	node4	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node4/worker2/logs/arvo_56947-c70b9444ffaf47d8a4d2a204d668e32e/console.log
+arvo:58287	15005.81	是	node8	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node8/worker1/logs/arvo_58287-8475dd1121aa483bad00dd997d9c6934/console.log
+arvo:58662	343.29	否	node12	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node12/worker2/logs/arvo_58662-3a80c7bb625a416d8f8456c581d4ed21/console.log
+arvo:58932	15001.26	是	node11	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node11/worker4/logs/arvo_58932-4b4d9a2d7f6f4c068a32ab0f27800a16/console.log
+arvo:59091	5117.07	否	node2	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node2/worker1/logs/arvo_59091-bcacaddacdc74fb1970709cc65d53fb5/console.log
+arvo:59699	15005.92	是	node11	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node11/worker5/logs/arvo_59699-6aed9b5327504e7b8be9da8fe7b03a29/console.log
+arvo:59814	15006.54	是	node1	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker1/logs/arvo_59814-5247aeaa582c460a897e5917921a41f3/console.log
+arvo:5992	15006.16	是	node14	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node14/worker5/logs/arvo_5992-de4a070e84ca411aa572c0df2912dd94/console.log
+arvo:60432	15006.52	是	node9	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node9/worker0/logs/arvo_60432-075be4c4872d4c85b5b98efed45ce4b0/console.log
+arvo:61292	15001.28	是	node15	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node15/worker2/logs/arvo_61292-a0087261b0874e938bfb01307d950138/console.log
+arvo:61675	1170.99	否	node14	worker6	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node14/worker6/logs/arvo_61675-9913a8ae1b4641bfb6d30a2557fbb3a6/console.log
+arvo:62274	15006.30	是	node7	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node7/worker2/logs/arvo_62274-64a40e4389bd40029ce53c254767bf1f/console.log
+arvo:62707	15005.80	是	node10	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node10/worker0/logs/arvo_62707-197dfee706d540a8bb56f2af3246a26a/console.log
+arvo:63564	9153.65	否	node1	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node1/worker1/logs/arvo_63564-1fef904f63a34c29a5e436bd6def9936/console.log
+arvo:64181	15006.07	是	node3	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node3/worker2/logs/arvo_64181-74dcb047eac44caf85449d771637f979/console.log
+arvo:64286	341.82	否	node19	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node19/worker3/logs/arvo_64286-223e29695bb946f4b06c724b20faf0d5/console.log
+arvo:65531	3409.26	否	node3	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun/node3/worker2/logs/arvo_65531-87ec4dde58ba478f85ca007fc5a0b913/console.log
+arvo:65765	192.79	否	node12	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun/node12/worker2/logs/arvo_65765-0a2e168da9534cedb0a389af44d90f59/console.log
+arvo:8046	10148.09	否	node5	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node5/worker4/logs/arvo_8046-7172262b5f0e461ca04bdad69c652f02/console.log
+oss-fuzz:383194079	15006.06	是	node16	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node16/worker1/logs/oss-fuzz_383194079-66b297b391f84fd5a3a9c4dc3e525fe8/console.log
+oss-fuzz:385742125	15006.04	是	node6	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node6/worker4/logs/oss-fuzz_385742125-57dd3cb54f254d3bb5e9f96d31830188/console.log
+oss-fuzz:42535039	4307.40	否	node5	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node5/worker0/logs/oss-fuzz_42535039-855097be71354b1f857ed78fdeb0542b/console.log
+oss-fuzz:42535468	15006.06	是	node0	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node0/worker3/logs/oss-fuzz_42535468-9323672be0044cce9ff5fee605df1bb5/console.log
+oss-fuzz:42536279	15006.30	是	node2	worker6	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node2/worker6/logs/oss-fuzz_42536279-104f7ed7e2ba48149bbdd91e8ee38bb3/console.log
+oss-fuzz:42537670	15005.87	是	node6	worker6	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node6/worker6/logs/oss-fuzz_42537670-5dcc1b777d3d4d0e8fadb01906d15f53/console.log
+oss-fuzz:42537748	3660.96	否	node21	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node21/worker3/logs/oss-fuzz_42537748-6a8e91530298420b9f2193c108be8074/console.log
+oss-fuzz:42537757	10250.12	否	node0	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node0/worker4/logs/oss-fuzz_42537757-787d17c3f80f4c27bf1f0ea61d96345d/console.log
+oss-fuzz:42538616	15006.57	是	node5	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/jt236/jt236-cyber-v0.0.1-ep3_preserve_eval_20260823_v9_rerun4/node5/worker5/logs/oss-fuzz_42538616-01d13dd60ac5467d8d48172dec875283/console.log

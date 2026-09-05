@@ -1,0 +1,17 @@
+2026-09-06 02:06:51 [INFO] uvicorn.error: Started server process [1832156]
+2026-09-06 02:06:51 [INFO] uvicorn.error: Waiting for application startup.
+2026-09-06 02:06:51 [INFO] cybergym.server: Starting server: db_path=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc/poc.db, log_dir=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc
+2026-09-06 02:06:51 [INFO] cybergym.server: Server ready
+2026-09-06 02:06:51 [INFO] uvicorn.error: Application startup complete.
+2026-09-06 02:06:51 [ERROR] uvicorn.error: [Errno 98] error while attempting to bind on address ('10.17.5.153', 8666): address already in use
+2026-09-06 02:06:51 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-09-06 02:06:51 [INFO] cybergym.server: Shutting down server
+2026-09-06 02:06:51 [INFO] uvicorn.error: Application shutdown complete.
+2026-09-06 02:16:08 [INFO] uvicorn.error: Started server process [1862963]
+2026-09-06 02:16:08 [INFO] uvicorn.error: Waiting for application startup.
+2026-09-06 02:16:08 [INFO] cybergym.server: Starting server: db_path=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc/poc.db, log_dir=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc
+2026-09-06 02:16:08 [INFO] cybergym.server: Server ready
+2026-09-06 02:16:08 [INFO] uvicorn.error: Application startup complete.
+2026-09-06 02:16:08 [INFO] uvicorn.error: Uvicorn running on http://10.17.5.153:8667 (Press CTRL+C to quit)
+2026-09-06 02:16:34 [INFO] cybergym.server: GET /docs -> 200 (0.3ms)
+2026-09-06 02:16:34 [INFO] uvicorn.access: 10.17.5.153:35070 - "GET /docs HTTP/1.1" 200

@@ -1,0 +1,24 @@
+nohup: ignoring input
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).
+Starting cybergym server on 10.17.5.153:8666
+DB path: /gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc/poc.db
+Binary dir: /gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/zhangyuyao/cybergym-server-data
+Mask map: /gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/mask_map.json
+2026-09-06 02:06:51 [INFO] cybergym.server: Loaded task mask map: /gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/mask_map.json
+2026-09-06 02:06:51 [INFO] uvicorn.error: Started server process [1832156]
+2026-09-06 02:06:51 [INFO] uvicorn.error: Waiting for application startup.
+2026-09-06 02:06:51 [INFO] cybergym.server: Starting server: db_path=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc/poc.db, log_dir=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/output/single-deepseek/server_poc
+2026-09-06 02:06:51 [INFO] cybergym.server: Server ready
+2026-09-06 02:06:51 [INFO] uvicorn.error: Application startup complete.
+2026-09-06 02:06:51 [ERROR] uvicorn.error: [Errno 98] error while attempting to bind on address ('10.17.5.153', 8666): address already in use
+2026-09-06 02:06:51 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-09-06 02:06:51 [INFO] cybergym.server: Shutting down server
+2026-09-06 02:06:51 [INFO] uvicorn.error: Application shutdown complete.

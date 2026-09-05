@@ -1,0 +1,16 @@
+# missing_exit_code 分析（timeout=15000s）
+# missing总数: 9  超过timeout: 4  未超timeout: 5  无耗时数据: 0
+# 按节点missing数量（某节点特别多≈该节点推理API挂掉）:
+#   node0: 5
+#   node5: 2
+#   node4: 2
+任务ID	耗时(秒)	是否超timeout	节点	工作进程	console.log路径
+arvo:28810	15006.90	是	node0	worker2	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node0/worker2/logs/arvo_28810-ad7f02bd27ed48a28e8c1e7363dee976/console.log
+arvo:42998	2563.42	否	node5	worker0	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node5/worker0/logs/arvo_42998-236810120c9b4b5b9f2fbde086637220/console.log
+arvo:49259	15006.20	是	node0	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node0/worker3/logs/arvo_49259-e35a5af93a3e452384cfd3be954dc1eb/console.log
+arvo:49386	15006.06	是	node4	worker3	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node4/worker3/logs/arvo_49386-7c2ca81a5b0a4e0393bc420f0d011fc3/console.log
+arvo:52317	1542.25	否	node0	worker5	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node0/worker5/logs/arvo_52317-c91fb9cad05e4b29b5abf632380d2b41/console.log
+arvo:53417	95.51	否	node0	worker1	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node0/worker1/logs/arvo_53417-b2fcccfc701a4b27a3ed02c9179712d0/console.log
+arvo:61816	15007.61	是	node4	worker7	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node4/worker7/logs/arvo_61816-39792b0f77ad4681b657a98c240a964f/console.log
+arvo:63157	487.67	否	node0	worker7	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node0/worker7/logs/arvo_63157-e32ea0ea3e75449f8f053d7e545b4d47/console.log
+oss-fuzz:385742125	1302.63	否	node5	worker4	/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/zhangyuyao/cybergym/output/GLM-5.2/glm52_eval_20260807_v9_rerun2/node5/worker4/logs/oss-fuzz_385742125-9fca62f15c7a48b496896e9536c1684d/console.log

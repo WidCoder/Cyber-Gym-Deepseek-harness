@@ -1,0 +1,1 @@
+nohup /llmcapagroup1/jtkl-hdd1-storage-1/2ab867e449cf41f1a037ff3c532f1bb5/data/zhangyuyao/cybergym-result/glm_5_1_scripts/distribute_scripts/binary_server.sh >> ${1}_poc_server.log 2>&1 &
