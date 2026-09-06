@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DEEPSEEK_IMAGE = "cybergym-deepseek:claude-v1"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEFAULT_DSH_PROFILE = "headless"
 
 
 def _yaml_string(value: str) -> str:
@@ -121,6 +122,7 @@ def run_agent(
         # harness choice local so that orchestration scripts remain unchanged.
         image = DEFAULT_DEEPSEEK_IMAGE
     provider, api_key, base_url, api_format, api_key_env = _provider_config()
+    dsh_profile = os.getenv("DSH_PROFILE", DEFAULT_DSH_PROFILE)
     model = os.getenv("LLM_MODEL") or (
         os.getenv("DEEPSEEK_MODEL") if provider == "deepseek" else None
     ) or model or DEFAULT_DEEPSEEK_MODEL
@@ -159,8 +161,7 @@ def run_agent(
     container_env = {
         "DEBUG": "1",
         "IS_SANDBOX": "1",
-        "DSH_HOME": "/opt/dsh-home",
-        "DSH_PROFILE": os.getenv("DSH_PROFILE", "agent-default-model"),
+        "DSH_PROFILE": dsh_profile,
         "DSH_TELEMETRY_DISABLED": "1",
         # Docker is already the task isolation boundary. Avoid an interactive
         # approval prompt inside the non-interactive CyberGym worker.
@@ -186,6 +187,8 @@ def run_agent(
     command = [
         "python3",
         "/opt/cybergym/run_dsh.py",
+        "--profile",
+        dsh_profile,
         "--patch",
         "/logs/dsh-runtime.patch.yml",
         "--prompt-file",

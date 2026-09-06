@@ -11,7 +11,7 @@ import sys
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--patch", required=True)
-    parser.add_argument("--profile", default=os.getenv("DSH_PROFILE", "agent-default-model"))
+    parser.add_argument("--profile", default=os.getenv("DSH_PROFILE", "headless"))
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--timeout", type=int, required=True)
     args = parser.parse_args(argv)
