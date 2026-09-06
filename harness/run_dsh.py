@@ -6,6 +6,7 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def main(argv=None) -> int:
@@ -16,18 +17,21 @@ def main(argv=None) -> int:
     parser.add_argument("--timeout", type=int, required=True)
     args = parser.parse_args(argv)
 
-    # Keep the CLI invocation in one tiny wrapper so the host adapter only
-    # needs to mount this file. No package manager or network access is used.
+    prompt = Path(args.prompt_file).read_text(encoding="utf-8")
+    # `--prompt-file` and `--timeout` belong to this wrapper. The headless DSH
+    # profile accepts the task as positional text, while timeout is enforced
+    # by the standard system timeout command.
     command = [
+        "/usr/bin/timeout",
+        "-k",
+        "30s",
+        str(args.timeout),
         os.getenv("DSH_BIN", "dsh"),
-        "--profile",
-        args.profile,
         "--patch",
         args.patch,
-        "--prompt-file",
-        args.prompt_file,
-        "--timeout",
-        str(args.timeout),
+        "--profile",
+        args.profile,
+        prompt,
     ]
     try:
         completed = subprocess.run(command, cwd="/workspace", check=False)
