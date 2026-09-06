@@ -160,6 +160,7 @@ def run_agent(
         "DEBUG": "1",
         "IS_SANDBOX": "1",
         "DSH_HOME": "/opt/dsh-home",
+        "DSH_PROFILE": os.getenv("DSH_PROFILE", "agent-default-model"),
         "DSH_TELEMETRY_DISABLED": "1",
         # Docker is already the task isolation boundary. Avoid an interactive
         # approval prompt inside the non-interactive CyberGym worker.

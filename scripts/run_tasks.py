@@ -43,6 +43,7 @@ def main(argv=None) -> int:
         os.environ["HARNESS_TYPE"] = args.harness
     failed = 0
     for task_id in task_ids:
+        print(f"[CyberGym] starting harness={os.environ.get('HARNESS_TYPE', 'claude')} task={task_id}", flush=True)
         command = [
             "--image", args.image,
             "--model", args.model,
@@ -55,7 +56,9 @@ def main(argv=None) -> int:
             "--max_iter", str(args.max_iter),
             "--difficulty", args.difficulty,
         ]
-        if run_harness(command) != 0:
+        status = run_harness(command)
+        print(f"[CyberGym] finished task={task_id} status={'ok' if status == 0 else 'failed'}", flush=True)
+        if status != 0:
             failed += 1
     return 1 if failed else 0
 
