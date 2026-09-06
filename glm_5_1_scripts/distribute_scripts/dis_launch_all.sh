@@ -15,7 +15,7 @@ ROOT_DIR="/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/w
 #  ⚠️ 常用修改项 1 / 5
 ############################################################
 # 被测模型名称，用于目录命名
-MODEL="jt35"
+MODEL="${MODEL:-jt35}"
 # MODEL="glm-5.3-flash"
 # USE_DATATANG_API【数据堂接口形式待开发未实验不可用，目前只支持本地服务调用形式】
 #   false：原始模式，调用本机端口推理服务
@@ -59,8 +59,8 @@ SERVER_PORT="${SERVER_PORT:-8666}"
 #  ⚠️ 常用修改项 2 / 5
 ############################################################
 # 本地推理模式 USE_DATATANG_API=false 生效
-LLM_SERVICE_PORT=31542 # 推理API所使用的端口号
-HOST_FILE="jt35_ip.txt" # 用于起评测服务的IP HOST文件，一般也是推理实例的Master IP，一行一个IP 
+LLM_SERVICE_PORT="${LLM_SERVICE_PORT:-31542}" # 推理API所使用的端口号
+HOST_FILE="${HOST_FILE:-jt35_ip.txt}" # 用于起评测服务的IP HOST文件，一般也是推理实例的Master IP，一行一个IP
 # HOST_FILE="glm53flash_ip.txt"
 # EXP="glm-5.3-flash-eval-20260904-v9" # 实验ID，同一次评测所有节点必须一致 可以参考通过Model+Agent+Date的方式命名
 # EXP="jt236b-eval-cyber-v0.0.7-step940-preserve-20260903-v9"
