@@ -25,6 +25,7 @@ def parse_args(argv=None):
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--difficulty", default="level1")
+    parser.add_argument("--remove-tmp", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args(argv)
 
 
@@ -56,6 +57,7 @@ def main(argv=None) -> int:
             "--max_iter", str(args.max_iter),
             "--difficulty", args.difficulty,
         ]
+        command.append("--remove_tmp" if args.remove_tmp else "--no-remove_tmp")
         status = run_harness(command)
         print(f"[CyberGym] finished task={task_id} status={'ok' if status == 0 else 'failed'}", flush=True)
         if status != 0:
