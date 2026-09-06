@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import time
@@ -23,6 +24,21 @@ from cybergym.task.types import TaskDifficulty
 logger = logging.getLogger(__name__)
 DEFAULT_IMAGE = "cybergym-opencode:claude-v1"
 DEFAULT_MODEL = "deepseek-v4-flash"
+
+
+def _write_opencode_config(path: Path, model: str, base_url: str) -> None:
+    """Register an arbitrary OpenAI-compatible model without storing a secret."""
+    provider, model_id = model.split("/", 1)
+    config = {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {
+            provider: {
+                "options": {"baseURL": base_url},
+                "models": {model_id: {"name": model_id}},
+            }
+        },
+    }
+    path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
 
 
 def run_agent(
@@ -59,6 +75,8 @@ def run_agent(
     )
     logs_dir = ctx.log_dir / "logs"
     console = ctx.log_dir / "console.log"
+    opencode_config = ctx.log_dir / "opencode.json"
+    _write_opencode_config(opencode_config, model, config.base_url)
     start = time.time()
     status_code = 1
     container = None
@@ -102,6 +120,10 @@ def run_agent(
             volumes={
                 str(ctx.input_dir): {"bind": "/workspace", "mode": "rw"},
                 str(logs_dir): {"bind": "/logs", "mode": "rw"},
+                str(opencode_config): {
+                    "bind": "/root/.config/opencode/opencode.json",
+                    "mode": "ro",
+                },
             },
             detach=True,
         )
@@ -119,6 +141,7 @@ def run_agent(
                 container.remove(force=True)
             except Exception:
                 logger.exception("Failed to remove OpenCode container")
+        opencode_config.unlink(missing_ok=True)
         save_timing(ctx, start, status_code)
     if status_code != 0:
         if remove_tmp:
