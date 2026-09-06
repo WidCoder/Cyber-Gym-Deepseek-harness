@@ -59,6 +59,21 @@ if [[ "${HARNESS_TYPE}" != "claude" && "${HARNESS_TYPE}" != "deepseek" && "${HAR
   exit 1
 fi
 export HARNESS_TYPE
+LLM_PROVIDER="${LLM_PROVIDER:-deepseek}"
+LLM_API_KEY_ENV="${LLM_API_KEY_ENV:-}"
+if [[ -z "${LLM_API_KEY_ENV}" ]]; then
+  case "${LLM_PROVIDER}" in
+    deepseek) LLM_API_KEY_ENV="DEEPSEEK_API_KEY" ;;
+    glm) LLM_API_KEY_ENV="GLM_API_KEY" ;;
+    gpt|openai|openai-compatible) LLM_API_KEY_ENV="OPENAI_API_KEY" ;;
+    anthropic|claude) LLM_API_KEY_ENV="ANTHROPIC_API_KEY" ;;
+  esac
+fi
+if [[ ! "${LLM_API_KEY_ENV}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+  echo "ERROR[worker-${global_rank}]: invalid LLM_API_KEY_ENV=${LLM_API_KEY_ENV}" >&2
+  exit 1
+fi
+export LLM_PROVIDER LLM_API_KEY_ENV
 USE_DATATANG_API="${USE_DATATANG_API:-false}"
 export USE_DATATANG_API
 export ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
@@ -77,8 +92,8 @@ if [[ "${HARNESS_TYPE}" == "claude" && -z "${ANTHROPIC_BASE_URL:-}" ]]; then
 fi
 export ANTHROPIC_BASE_URL
 
-if [[ "${HARNESS_TYPE}" != "claude" && -z "${DEEPSEEK_API_KEY:-}" ]]; then
-  echo "ERROR[worker-${global_rank}]: DEEPSEEK_API_KEY must be exported for ${HARNESS_TYPE}" >&2
+if [[ "${HARNESS_TYPE}" != "claude" && -z "${!LLM_API_KEY_ENV:-}" ]]; then
+  echo "ERROR[worker-${global_rank}]: ${LLM_API_KEY_ENV} must be exported for ${HARNESS_TYPE}" >&2
   exit 1
 fi
 
@@ -232,9 +247,15 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
   image="${HARNESS_IMAGE:-claude-cybergym:v4}"
   if [[ "${HARNESS_TYPE}" == "deepseek" ]]; then image="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"; fi
   if [[ "${HARNESS_TYPE}" == "opencode" ]]; then image="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"; fi
+  agent_model="${MODEL}"
+  if [[ -n "${HARNESS_MODEL:-}" ]]; then agent_model="${HARNESS_MODEL}"; fi
+  if [[ "${HARNESS_TYPE}" == "deepseek" && "${LLM_PROVIDER:-deepseek}" == "deepseek" && -n "${DEEPSEEK_MODEL:-}" ]]; then agent_model="${DEEPSEEK_MODEL}"; fi
+  if [[ "${HARNESS_TYPE}" == "opencode" && -n "${OPENCODE_MODEL:-}" ]]; then agent_model="${OPENCODE_MODEL}"; fi
+  if [[ "${HARNESS_TYPE}" == "opencode" && "${LLM_PROVIDER:-deepseek}" == "deepseek" && -n "${DEEPSEEK_MODEL:-}" && -z "${OPENCODE_MODEL:-}" ]]; then agent_model="${DEEPSEEK_MODEL}"; fi
+  if [[ -n "${LLM_MODEL:-}" ]]; then agent_model="${LLM_MODEL}"; fi
   if ! python "${RUN_CC_SCRIPT}" \
       --image "${image}" \
-      --model "$MODEL" \
+      --model "$agent_model" \
       --log_dir "$OUT_DIR/logs" \
       --tmp_dir "$OUT_DIR/tmp" \
       --data_dir "$CYBERGYM_DATA_DIR" \

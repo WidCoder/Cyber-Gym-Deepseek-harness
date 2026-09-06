@@ -30,6 +30,29 @@ HARNESS_TYPE="${HARNESS_TYPE:-claude}"
 DEEPSEEK_IMAGE="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"
 OPENCODE_IMAGE="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"
 DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-flash}"
+OPENCODE_MODEL="${OPENCODE_MODEL:-}"
+LLM_PROVIDER="${LLM_PROVIDER:-deepseek}"
+LLM_API_KEY_ENV="${LLM_API_KEY_ENV:-}"
+if [[ -z "${LLM_API_KEY_ENV}" ]]; then
+    case "${LLM_PROVIDER}" in
+        deepseek) LLM_API_KEY_ENV="DEEPSEEK_API_KEY" ;;
+        glm) LLM_API_KEY_ENV="GLM_API_KEY" ;;
+        gpt|openai|openai-compatible) LLM_API_KEY_ENV="OPENAI_API_KEY" ;;
+        anthropic|claude) LLM_API_KEY_ENV="ANTHROPIC_API_KEY" ;;
+        *) echo "[ERROR] unsupported LLM_PROVIDER=${LLM_PROVIDER}" >&2; exit 1 ;;
+    esac
+fi
+if [[ ! "${LLM_API_KEY_ENV}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "[ERROR] invalid LLM_API_KEY_ENV=${LLM_API_KEY_ENV}" >&2
+    exit 1
+fi
+LLM_BASE_URL="${LLM_BASE_URL:-}"
+GLM_BASE_URL="${GLM_BASE_URL:-}"
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
+OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
+LLM_API_FORMAT="${LLM_API_FORMAT:-}"
+LLM_MODEL="${LLM_MODEL:-}"
+HARNESS_MODEL="${HARNESS_MODEL:-}"
 SERVER_PORT="${SERVER_PORT:-8666}"
 
 ############################################################
@@ -161,8 +184,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${HARNESS_TYPE}" != "claude" ]]; then
-    : "${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY must be exported for ${HARNESS_TYPE}}"
-    export DEEPSEEK_API_KEY
+    if [[ -z "${!LLM_API_KEY_ENV:-}" ]]; then
+        echo "[ERROR] ${LLM_API_KEY_ENV} must be exported for ${HARNESS_TYPE}" >&2
+        exit 1
+    fi
+    export "${LLM_API_KEY_ENV}"
 fi
 
 
@@ -267,9 +293,9 @@ for node_rank in "${!HOSTS[@]}"; do
     host="${HOSTS[${node_rank}]}"
     echo ">> Submit node ${host} node_rank=${node_rank}"
 
-    ssh -n -o SendEnv=DEEPSEEK_API_KEY "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
+    ssh -n -o SendEnv="${LLM_API_KEY_ENV}" "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
 
-    ssh -n -o SendEnv=DEEPSEEK_API_KEY "${host}" "
+    ssh -n -o SendEnv="${LLM_API_KEY_ENV}" "${host}" "
         export USE_DATATANG_API='${USE_DATATANG_API}';
         export ANTHROPIC_AUTH_TOKEN='${ANTHROPIC_AUTH_TOKEN}';
         export ANTHROPIC_MODEL='${ANTHROPIC_MODEL}';
@@ -282,6 +308,16 @@ for node_rank in "${!HOSTS[@]}"; do
         export DEEPSEEK_IMAGE='${DEEPSEEK_IMAGE}';
         export OPENCODE_IMAGE='${OPENCODE_IMAGE}';
         export DEEPSEEK_MODEL='${DEEPSEEK_MODEL}';
+        export OPENCODE_MODEL='${OPENCODE_MODEL}';
+        export LLM_PROVIDER='${LLM_PROVIDER}';
+        export LLM_API_KEY_ENV='${LLM_API_KEY_ENV}';
+        export LLM_BASE_URL='${LLM_BASE_URL}';
+        export GLM_BASE_URL='${GLM_BASE_URL}';
+        export OPENAI_BASE_URL='${OPENAI_BASE_URL}';
+        export OPENCODE_BASE_URL='${OPENCODE_BASE_URL}';
+        export LLM_API_FORMAT='${LLM_API_FORMAT}';
+        export LLM_MODEL='${LLM_MODEL}';
+        export HARNESS_MODEL='${HARNESS_MODEL}';
         export SERVER_PORT='${SERVER_PORT}';
         ${USE_DATATANG_API:+export ALL_PROXY=socks5h://10.17.9.218:1080;export all_proxy=socks5h://10.17.9.218:1080;}
         if [[ \"\${USE_DATATANG_API}\" == \"false\" ]]; then

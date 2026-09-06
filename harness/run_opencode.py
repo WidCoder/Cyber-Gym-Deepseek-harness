@@ -17,21 +17,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from harness.base import PROMPT, finish_task, prepare_task, save_timing
+from harness.provider import resolve_llm_config
 from cybergym.task.types import TaskDifficulty
 
 logger = logging.getLogger(__name__)
 DEFAULT_IMAGE = "cybergym-opencode:claude-v1"
 DEFAULT_MODEL = "deepseek-v4-flash"
-
-
-def _api_config() -> tuple[str, str]:
-    key = os.getenv("DEEPSEEK_API_KEY")
-    if not key:
-        raise RuntimeError("DEEPSEEK_API_KEY is required for OpenCode")
-    return key, os.getenv(
-        "OPENCODE_BASE_URL",
-        os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-    )
 
 
 def run_agent(
@@ -50,10 +41,12 @@ def run_agent(
 ) -> str | None:
     del max_iter
     image = os.getenv("OPENCODE_IMAGE", image or DEFAULT_IMAGE)
-    model = os.getenv("OPENCODE_MODEL") or DEFAULT_MODEL
+    config = resolve_llm_config()
+    if config.provider == "anthropic":
+        raise RuntimeError("OpenCode adapter requires an OpenAI-compatible API")
+    model = os.getenv("OPENCODE_MODEL") or os.getenv("LLM_MODEL") or model or DEFAULT_MODEL
     if "/" not in model:
-        model = f"openai/{model}"
-    api_key, base_url = _api_config()
+        model = f"{os.getenv('OPENCODE_PROVIDER', 'openai')}/{model}"
     ctx, _ = prepare_task(
         task_id=task_id,
         data_dir=data_dir,
@@ -85,9 +78,12 @@ def run_agent(
     env = {
         "DEBUG": "1",
         "IS_SANDBOX": "1",
-        "DEEPSEEK_API_KEY": api_key,
-        "OPENAI_API_KEY": api_key,
-        "OPENAI_BASE_URL": base_url,
+        config.api_key_env: config.api_key,
+        "OPENAI_API_KEY": config.api_key,
+        "OPENAI_BASE_URL": config.base_url,
+        "OPENCODE_BASE_URL": config.base_url,
+        "LLM_PROVIDER": config.provider,
+        "LLM_API_FORMAT": config.api_format,
         "OPENCODE_DISABLE_UPDATE_CHECK": "1",
     }
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"):

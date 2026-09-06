@@ -254,6 +254,29 @@ export HARNESS_IMAGE="${HARNESS_IMAGE:-}"
 export DEEPSEEK_IMAGE="${DEEPSEEK_IMAGE:-cybergym-deepseek:claude-v1}"
 export OPENCODE_IMAGE="${OPENCODE_IMAGE:-cybergym-opencode:claude-v1}"
 export DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-flash}"
+export OPENCODE_MODEL="${OPENCODE_MODEL:-}"
+export LLM_PROVIDER="${LLM_PROVIDER:-deepseek}"
+export LLM_API_KEY_ENV="${LLM_API_KEY_ENV:-}"
+if [[ -z "${LLM_API_KEY_ENV}" ]]; then
+  case "${LLM_PROVIDER}" in
+    deepseek) LLM_API_KEY_ENV="DEEPSEEK_API_KEY" ;;
+    glm) LLM_API_KEY_ENV="GLM_API_KEY" ;;
+    gpt|openai|openai-compatible) LLM_API_KEY_ENV="OPENAI_API_KEY" ;;
+    anthropic|claude) LLM_API_KEY_ENV="ANTHROPIC_API_KEY" ;;
+  esac
+fi
+if [[ ! "${LLM_API_KEY_ENV}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+  echo "[ERROR] invalid LLM_API_KEY_ENV=${LLM_API_KEY_ENV}" >&2
+  exit 1
+fi
+export LLM_API_KEY_ENV
+export LLM_BASE_URL="${LLM_BASE_URL:-}"
+export GLM_BASE_URL="${GLM_BASE_URL:-}"
+export OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
+export OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
+export LLM_API_FORMAT="${LLM_API_FORMAT:-}"
+export LLM_MODEL="${LLM_MODEL:-}"
+export HARNESS_MODEL="${HARNESS_MODEL:-}"
 if [[ "${HARNESS_TYPE}" == "deepseek" ]]; then export HARNESS_IMAGE="${DEEPSEEK_IMAGE}"; fi
 if [[ "${HARNESS_TYPE}" == "opencode" ]]; then export HARNESS_IMAGE="${OPENCODE_IMAGE}"; fi
 # ✅传给start_one_process.sh必须是 round1 / round2，不是裸数字

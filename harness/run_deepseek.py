@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from harness.base import PROMPT, finish_task, prepare_task, save_timing
+from harness.provider import resolve_llm_config
 from cybergym.task.types import TaskDifficulty
 
 logger = logging.getLogger(__name__)
@@ -24,75 +25,14 @@ DEFAULT_DEEPSEEK_IMAGE = "cybergym-deepseek:claude-v1"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 
 
-def _first_env(*names: str) -> str:
-    for name in names:
-        value = os.getenv(name)
-        if value:
-            return value
-    return ""
-
-
 def _yaml_string(value: str) -> str:
     """Use JSON quoting, which is also valid YAML, for generated scalar values."""
     return json.dumps(value, ensure_ascii=True)
 
 
 def _provider_config() -> tuple[str, str, str, str, str]:
-    raw_provider = os.getenv("LLM_PROVIDER", "deepseek").lower()
-    provider_aliases = {
-        "deepseek": "deepseek",
-        "deepseek-official": "deepseek",
-        "openai": "openai",
-        "openai-compatible": "openai",
-        "openai_chat": "openai",
-        "anthropic": "anthropic",
-        "claude": "anthropic",
-    }
-    provider = provider_aliases.get(raw_provider)
-    if provider is None:
-        raise RuntimeError(
-            f"unsupported LLM_PROVIDER={raw_provider}; use deepseek, openai, or anthropic"
-        )
-
-    if provider == "deepseek" and os.getenv("DEEPSEEK_API_MODE", "native").lower() == "anthropic":
-        provider = "anthropic"
-
-    if provider == "deepseek":
-        api_key_env = "DEEPSEEK_API_KEY"
-        api_key = os.getenv("DEEPSEEK_API_KEY", "")
-        base_url = _first_env("LLM_BASE_URL", "DEEPSEEK_BASE_URL")
-        if not base_url:
-            base_url = "https://api.deepseek.com"
-        api_format = "deepseek"
-    elif provider == "anthropic":
-        use_deepseek = os.getenv("DEEPSEEK_API_MODE", "").lower() == "anthropic"
-        api_key_env = "DEEPSEEK_API_KEY" if use_deepseek else "ANTHROPIC_API_KEY"
-        api_key = os.getenv("DEEPSEEK_API_KEY", "") if use_deepseek else _first_env("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-        base_url = _first_env("LLM_BASE_URL", "ANTHROPIC_BASE_URL")
-        if not base_url:
-            base_url = "https://api.deepseek.com/anthropic" if use_deepseek else "https://api.anthropic.com"
-        api_format = os.getenv("LLM_API_FORMAT", "anthropic-messages").lower()
-    else:
-        api_key_env = "OPENAI_API_KEY"
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        base_url = _first_env("LLM_BASE_URL", "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL")
-        if not base_url:
-            base_url = "https://api.openai.com/v1"
-        api_format = os.getenv("LLM_API_FORMAT", "openai-completions").lower()
-
-    expected_formats = {
-        "deepseek": {"deepseek"},
-        "anthropic": {"anthropic-messages"},
-        "openai": {"openai-completions", "openai-responses"},
-    }
-    if api_format not in expected_formats[provider]:
-        allowed = ", ".join(sorted(expected_formats[provider]))
-        raise RuntimeError(
-            f"LLM_API_FORMAT={api_format} is incompatible with {provider}; use {allowed}"
-        )
-    if not api_key:
-        raise RuntimeError(f"API key is required for provider {provider}")
-    return provider, api_key, base_url, api_format, api_key_env
+    config = resolve_llm_config()
+    return config.provider, config.api_key, config.base_url, config.api_format, config.api_key_env
 
 
 def _build_dsh_patch(
@@ -180,8 +120,10 @@ def run_agent(
         # The outer legacy worker may still pass the Claude image. Keep the
         # harness choice local so that orchestration scripts remain unchanged.
         image = DEFAULT_DEEPSEEK_IMAGE
-    model = os.getenv("DEEPSEEK_MODEL") or model or DEFAULT_DEEPSEEK_MODEL
     provider, api_key, base_url, api_format, api_key_env = _provider_config()
+    model = os.getenv("LLM_MODEL") or (
+        os.getenv("DEEPSEEK_MODEL") if provider == "deepseek" else None
+    ) or model or DEFAULT_DEEPSEEK_MODEL
 
     ctx, _ = prepare_task(
         task_id=task_id,
