@@ -75,6 +75,10 @@ def _text(value: Any, depth: int = 0) -> str:
                 result = _text(value[key], depth + 1)
                 if result:
                     return result
+        for item in value.values():
+            result = _text(item, depth + 1)
+            if result:
+                return result
     return ""
 
 
