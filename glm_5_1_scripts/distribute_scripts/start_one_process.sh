@@ -306,6 +306,15 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
     failed_num=$((failed_num + 1))
   fi
 
+  # Attach the verification outcome to the task-level structured result.
+  RESULT_SCRIPT="${RESULT_SCRIPT_PATH:-${OUT_ROOT}/../scripts/update_task_result.py}"
+  if [[ -f "${RESULT_SCRIPT}" && -f "${full_path}/result.json" ]]; then
+    python3 "${RESULT_SCRIPT}" \
+      --result "${full_path}/result.json" \
+      --verification-log "${result_log}" || \
+      echo "WARNING: failed to update ${full_path}/result.json" >&2
+  fi
+
   processed_num=$((processed_num + 1))
 done
 

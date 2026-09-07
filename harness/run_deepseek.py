@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 
 from harness.base import PROMPT, finish_task, prepare_task, save_timing
 from harness.provider import resolve_llm_config
+from harness.result import write_result
 from cybergym.task.types import TaskDifficulty
 
 logger = logging.getLogger(__name__)
@@ -236,6 +237,20 @@ def run_agent(
             except Exception:
                 logger.exception("Failed to remove DSH container")
         save_timing(ctx, start, status_code)
+        try:
+            write_result(
+                ctx.log_dir,
+                harness="deepseek",
+                model=model,
+                image=image,
+                provider=provider,
+                api_format=api_format,
+                llm_base_url=base_url,
+                cybergym_server=server,
+                status_code=status_code,
+            )
+        except Exception:
+            logger.exception("Failed to write structured task result")
 
     if status_code != 0:
         if remove_tmp:
