@@ -197,6 +197,8 @@ POC_SAVE_DIR="${out_root}/${model}/${run_id}/server_poc"
 mkdir -p "${POC_SAVE_DIR}"
 
 total_workers=$((node_count * workers_per_node))
+capture_proxy_pid=""
+declare -a worker_pids=()
 
 # # -------------------------- 部署拦截API请求的Proxy开始 --------------------------
 # PROXY_PORT=${PROXY_PORT:-31545} # 31545 31542
@@ -228,6 +230,38 @@ if [[ "${HARNESS_TYPE:-claude}" == "claude" && "${USE_DATATANG_API}" == "false" 
     export ANTHROPIC_BASE_URL="http://${MASTER_SERVER_IP}:${LLM_SERVICE_PORT}/"
 fi
 # -------------------------- ✅关键修复块结束 --------------------------
+
+if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
+  CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py}"
+  CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
+  CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-${log_dir}/capture_logs}"
+  CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+  mkdir -p "${CAPTURE_LOG_DIR}"
+  if [[ ! -f "${CAPTURE_PROXY_SCRIPT}" ]]; then
+    echo "ERROR capture proxy script not found: ${CAPTURE_PROXY_SCRIPT}" >&2
+    exit 1
+  fi
+  nohup "${CAPTURE_PROXY_PYTHON}" "${CAPTURE_PROXY_SCRIPT}" \
+    --listen-host 0.0.0.0 \
+    --listen-port "${CAPTURE_PROXY_PORT}" \
+    --upstream-url "http://${MASTER_SERVER_IP}:${llm_service_port}" \
+    --log-dir "${CAPTURE_LOG_DIR}" \
+    --timeout-seconds "${CAPTURE_PROXY_TIMEOUT:-300}" \
+    > "${CAPTURE_LOG_DIR}/proxy_launch.log" 2>&1 &
+  capture_proxy_pid=$!
+  echo "${capture_proxy_pid}" > "${CAPTURE_LOG_DIR}/proxy.pid"
+  echo "CAPTURE_PROXY_PID=${capture_proxy_pid}"
+  export CAPTURE_LOG_DIR
+  CAPTURE_BASE_URL="http://${MASTER_SERVER_IP}:${CAPTURE_PROXY_PORT}"
+  if [[ "${HARNESS_TYPE:-claude}" == "claude" ]]; then
+    export ANTHROPIC_BASE_URL="${CAPTURE_BASE_URL}"
+  else
+    export LLM_BASE_URL="${CAPTURE_BASE_URL}/v1"
+    export GLM_BASE_URL="${CAPTURE_BASE_URL}/v1"
+    export OPENAI_BASE_URL="${CAPTURE_BASE_URL}/v1"
+    export OPENCODE_BASE_URL="${CAPTURE_BASE_URL}/v1"
+  fi
+fi
 
 echo "run_id=$run_id round_i(tag)=$round_i ROUND_TAG(env)=$ROUND_TAG node=$node_rank/$node_count local_workers=$workers_per_node global_workers=$total_workers"
 echo "MODEL=${model} LLM_SERVICE_PORT=${llm_service_port}"
@@ -274,6 +308,11 @@ export LLM_BASE_URL="${LLM_BASE_URL:-}"
 export GLM_BASE_URL="${GLM_BASE_URL:-}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
 export OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
+export CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
+export CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-}"
+export CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
+export CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+export CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-}"
 export LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 export LLM_MODEL="${LLM_MODEL:-}"
 export HARNESS_MODEL="${HARNESS_MODEL:-}"
@@ -323,6 +362,31 @@ for ((local_rank=0; local_rank < workers_per_node; local_rank++)); do
     "$global_rank" "$total_workers" "$run_id" "$node_rank" "$local_rank" \
     >"$log_file" 2>&1 &
   pid=$!
+  worker_pids+=("${pid}")
   echo "$pid" >"$pid_file"
   echo "started local_rank=$local_rank global_shard=$global_rank/$total_workers pid=$pid log=$log_file"
 done
+
+# Keep the optional capture proxy alive for this round, then clean it up so a
+# later round can reuse the same port. The proxy is deliberately independent
+# from the legacy Claude path and is only watched when capture is enabled.
+if [[ -n "${capture_proxy_pid}" ]]; then
+  (
+    while :; do
+      workers_alive=false
+      for worker_pid in "${worker_pids[@]}"; do
+        if kill -0 "${worker_pid}" 2>/dev/null; then
+          workers_alive=true
+          break
+        fi
+      done
+      if [[ "${workers_alive}" != true ]]; then
+        kill "${capture_proxy_pid}" 2>/dev/null || true
+        rm -f "${CAPTURE_LOG_DIR}/proxy.pid"
+        exit 0
+      fi
+      sleep 5
+    done
+  ) >> "${CAPTURE_LOG_DIR}/proxy_watchdog.log" 2>&1 &
+  echo "$!" > "${CAPTURE_LOG_DIR}/proxy_watchdog.pid"
+fi

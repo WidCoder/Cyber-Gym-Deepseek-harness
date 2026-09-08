@@ -248,6 +248,7 @@ def run_agent(
                 llm_base_url=base_url,
                 cybergym_server=server,
                 status_code=status_code,
+                workspace_dir=ctx.input_dir,
             )
         except Exception:
             logger.exception("Failed to write structured task result")

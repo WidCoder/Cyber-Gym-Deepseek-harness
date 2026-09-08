@@ -170,6 +170,29 @@ def normalize_session(session: Path, output: Path) -> dict[str, int]:
     return stats
 
 
+def normalize_opencode_console(console: Path, output: Path) -> dict[str, int]:
+    """Convert OpenCode JSON events into the same readable JSONL shape."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    stats = {"events": 0, "thinking": 0, "text": 0, "tool_calls": 0, "tool_results": 0, "errors": 0}
+    with output.open("w", encoding="utf-8") as stream:
+        for index, line in enumerate(console.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            event = _normalize(record, index)
+            stream.write(json.dumps(event, ensure_ascii=False) + "\n")
+            stats["events"] += 1
+            stats["thinking"] += event["type"] == "assistant_thinking"
+            stats["text"] += event["type"] == "assistant_text"
+            stats["tool_calls"] += event["type"] == "tool_call"
+            stats["tool_results"] += event["type"] == "tool_result"
+            stats["errors"] += event["type"] == "error"
+    return stats
+
+
 def submit_paths(console: Path) -> list[str]:
     if not console.is_file():
         return []

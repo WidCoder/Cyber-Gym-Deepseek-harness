@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 
 from harness.base import PROMPT, finish_task, prepare_task, save_timing
 from harness.provider import resolve_llm_config
+from harness.result import write_result
 from cybergym.task.types import TaskDifficulty
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,8 @@ def run_agent(
         "LLM_API_FORMAT": config.api_format,
         "OPENCODE_DISABLE_UPDATE_CHECK": "1",
     }
+    if os.getenv("OPENCODE_AUTO", "1").lower() not in {"0", "false", "no"}:
+        command.insert(command.index("--format"), "--auto")
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"):
         if os.getenv(name):
             env[name] = os.environ[name]
@@ -143,6 +146,21 @@ def run_agent(
                 logger.exception("Failed to remove OpenCode container")
         opencode_config.unlink(missing_ok=True)
         save_timing(ctx, start, status_code)
+        try:
+            write_result(
+                ctx.log_dir,
+                harness="opencode",
+                model=model,
+                image=image,
+                provider=config.provider,
+                api_format=config.api_format,
+                llm_base_url=config.base_url,
+                cybergym_server=server,
+                status_code=status_code,
+                workspace_dir=ctx.input_dir,
+            )
+        except Exception:
+            logger.exception("Failed to write structured task result")
     if status_code != 0:
         if remove_tmp:
             import shutil

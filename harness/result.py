@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import shutil
 import time
 from pathlib import Path
 from typing import Any
 
-from harness.trace import find_session, normalize_session, submit_paths
+from harness.capture import summarize_captures
+from harness.trace import find_session, normalize_opencode_console, normalize_session, submit_paths
 
 
 def write_result(
@@ -21,11 +25,13 @@ def write_result(
     llm_base_url: str,
     cybergym_server: str,
     status_code: int,
+    workspace_dir: Path | None = None,
 ) -> Path:
     args = json.loads((log_dir / "args.json").read_text(encoding="utf-8"))
     timing_path = log_dir / "timing.json"
     timing = json.loads(timing_path.read_text(encoding="utf-8")) if timing_path.is_file() else {}
     session = find_session(log_dir / "logs" / "sessions")
+    console = log_dir / "console.log"
     trajectory = log_dir / "trajectory.jsonl"
     stats = {"events": 0, "thinking": 0, "text": 0, "tool_calls": 0, "tool_results": 0, "errors": 0}
     trace_status = "missing"
@@ -37,8 +43,36 @@ def write_result(
         except Exception as exc:
             trace_status = "error"
             trace_error = str(exc)
+    elif console.is_file():
+        try:
+            stats = normalize_opencode_console(console, trajectory)
+            trace_status = "normalized"
+        except Exception as exc:
+            trace_status = "error"
+            trace_error = str(exc)
 
     task = args.get("task", {})
+    submitted = submit_paths(console)
+    artifacts: list[dict[str, Any]] = []
+    artifact_dir = log_dir / "artifacts"
+    if workspace_dir is not None:
+        for submitted_path in submitted:
+            relative = submitted_path
+            if relative.startswith("/workspace/"):
+                relative = relative[len("/workspace/") :]
+            source = workspace_dir / relative if not Path(relative).is_absolute() else Path(relative)
+            if not source.is_file():
+                continue
+            target = artifact_dir / Path(relative).name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            artifacts.append({
+                "source": submitted_path,
+                "file": str(target.relative_to(log_dir)),
+                "sha256": digest,
+                "size_bytes": target.stat().st_size,
+            })
     result: dict[str, Any] = {
         "schema_version": "1.0",
         "task": {
@@ -52,6 +86,7 @@ def write_result(
             "image": image,
             "provider": provider,
             "api_format": api_format,
+            "agent_kind": os.getenv("CYBERGYM_AGENT_KIND", "main"),
         },
         "server": {
             "llm_base_url": llm_base_url,
@@ -71,10 +106,16 @@ def write_result(
         },
         "events": stats,
         "actions": {
-            "submit_count": len(submit_paths(log_dir / "console.log")),
-            "submitted_pocs": submit_paths(log_dir / "console.log"),
+            "submit_count": len(submitted),
+            "submitted_pocs": submitted,
+            "artifacts": artifacts,
         },
         "verification": {"status": "pending"},
+        "api_capture": summarize_captures(
+            None,
+            start_time=timing.get("start_time"),
+            end_time=timing.get("end_time"),
+        ),
         "generated_at": time.time(),
     }
     output = log_dir / "result.json"

@@ -308,11 +308,31 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
 
   # Attach the verification outcome to the task-level structured result.
   RESULT_SCRIPT="${RESULT_SCRIPT_PATH:-${OUT_ROOT}/../scripts/update_task_result.py}"
+  TRAINING_SCRIPT="${TRAINING_SCRIPT_PATH:-${OUT_ROOT}/../scripts/export_training_data.py}"
+  training_output="${full_path}/train.jsonl"
+  result_args=(--result "${full_path}/result.json" --verification-log "${result_log}")
   if [[ -f "${RESULT_SCRIPT}" && -f "${full_path}/result.json" ]]; then
     python3 "${RESULT_SCRIPT}" \
-      --result "${full_path}/result.json" \
-      --verification-log "${result_log}" || \
+      "${result_args[@]}" || \
       echo "WARNING: failed to update ${full_path}/result.json" >&2
+  fi
+
+  # Export only after verification has been attached, so training metadata
+  # contains the final vul/fix exit codes.
+  if [[ -n "${CAPTURE_LOG_DIR:-}" && -f "${TRAINING_SCRIPT}" && -f "${full_path}/result.json" ]]; then
+    start_time=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("start_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
+    end_time=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("end_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
+    training_args=(--capture-dir "${CAPTURE_LOG_DIR}" --output "${training_output}" --result "${full_path}/result.json")
+    [[ -n "${start_time}" ]] && training_args+=(--start-time "${start_time}")
+    [[ -n "${end_time}" ]] && training_args+=(--end-time "${end_time}")
+    if python3 "${TRAINING_SCRIPT}" "${training_args[@]}"; then
+      echo "training_data=${training_output}"
+      result_args+=(--training-output "${training_output}")
+      python3 "${RESULT_SCRIPT}" "${result_args[@]}" || \
+        echo "WARNING: failed to attach training data path for ${task_id}" >&2
+    else
+      echo "WARNING: failed to export training data for ${task_id}" >&2
+    fi
   fi
 
   processed_num=$((processed_num + 1))

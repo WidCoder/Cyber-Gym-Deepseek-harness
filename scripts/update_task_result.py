@@ -12,6 +12,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--verification-log", type=Path, required=True)
+    parser.add_argument("--training-output", type=Path)
     args = parser.parse_args(argv)
     result = json.loads(args.result.read_text(encoding="utf-8"))
     text = args.verification_log.read_text(encoding="utf-8", errors="replace")
@@ -33,6 +34,11 @@ def main(argv=None) -> int:
         result["verification"]["status"] = "completed_not_verified"
     else:
         result["verification"]["status"] = "error_or_no_record"
+    if args.training_output:
+        result["training"] = {
+            "status": "exported" if args.training_output.is_file() else "missing",
+            "file": str(args.training_output),
+        }
     args.result.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0
 
