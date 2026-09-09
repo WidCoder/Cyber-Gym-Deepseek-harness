@@ -241,13 +241,27 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py}"
   CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
   CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-${log_dir}/capture_logs}"
-  CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+  CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv}"
+  CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CAPTURE_PROXY_VENV}/bin/python}"
   CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-http://${MASTER_SERVER_IP}:${llm_service_port}}"
   mkdir -p "${CAPTURE_LOG_DIR}"
   if [[ ! -f "${CAPTURE_PROXY_SCRIPT}" ]]; then
     echo "ERROR capture proxy script not found: ${CAPTURE_PROXY_SCRIPT}" >&2
     exit 1
   fi
+  if [[ ! -f "${CAPTURE_PROXY_VENV}/bin/activate" ]]; then
+    echo "ERROR capture proxy virtualenv not found: ${CAPTURE_PROXY_VENV}" >&2
+    exit 1
+  fi
+  # Activate the proxy environment explicitly so imports and runtime match the configured Python.
+  source "${CAPTURE_PROXY_VENV}/bin/activate"
+  if [[ ! -x "${CAPTURE_PROXY_PYTHON}" ]]; then
+    echo "ERROR capture proxy Python not executable: ${CAPTURE_PROXY_PYTHON}" >&2
+    exit 1
+  fi
+  echo "CAPTURE_PROXY_VENV=${VIRTUAL_ENV}"
+  echo "CAPTURE_PROXY_PYTHON=${CAPTURE_PROXY_PYTHON}"
+  "${CAPTURE_PROXY_PYTHON}" --version
   nohup "${CAPTURE_PROXY_PYTHON}" "${CAPTURE_PROXY_SCRIPT}" \
     --listen-host 0.0.0.0 \
     --listen-port "${CAPTURE_PROXY_PORT}" \
@@ -319,7 +333,8 @@ export OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
 export CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
 export CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-}"
 export CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
-export CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+export CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv}"
+export CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CAPTURE_PROXY_VENV}/bin/python}"
 export CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
 export CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-}"
 export LLM_API_FORMAT="${LLM_API_FORMAT:-}"

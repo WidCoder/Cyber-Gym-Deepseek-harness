@@ -54,7 +54,8 @@ OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
 CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
 CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py}"
 CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
-CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv}"
+CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CAPTURE_PROXY_VENV}/bin/python}"
 CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
 LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 LLM_MODEL="${LLM_MODEL:-}"
@@ -338,6 +339,7 @@ for node_rank in "${!HOSTS[@]}"; do
         export CAPTURE_PROXY_ENABLED='${CAPTURE_PROXY_ENABLED}';
         export CAPTURE_PROXY_SCRIPT='${CAPTURE_PROXY_SCRIPT}';
         export CAPTURE_PROXY_PORT='${CAPTURE_PROXY_PORT}';
+        export CAPTURE_PROXY_VENV='${CAPTURE_PROXY_VENV}';
         export CAPTURE_PROXY_PYTHON='${CAPTURE_PROXY_PYTHON}';
         export CAPTURE_PROXY_UPSTREAM_URL='${CAPTURE_PROXY_UPSTREAM_URL}';
         export LLM_API_FORMAT='${LLM_API_FORMAT}';
