@@ -70,3 +70,77 @@ def summarize_captures(
         else:
             result["partial_count"] += 1
     return result
+
+
+def write_capture_manifest(
+    capture_dir: Path | None,
+    log_dir: Path,
+    *,
+    task_id: str | None,
+    agent_id: str | None,
+    start_time: float | None = None,
+    end_time: float | None = None,
+) -> Path:
+    """Persist the task-to-capture/log linkage without copying API payloads."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = log_dir / "capture_manifest.json"
+    completed = capture_dir / "raw" / "completed" if capture_dir else None
+    captures: list[dict[str, Any]] = []
+
+    if completed and completed.is_dir():
+        for item in sorted(completed.iterdir()):
+            if not item.is_dir():
+                continue
+            request = _read(item / "request.json") or {}
+            response = _read(item / "response.json") or {}
+            request_time = _timestamp(request.get("captured_at"))
+            response_time = _timestamp(response.get("finished_at"))
+            probe_time = response_time or request_time or item.stat().st_mtime
+            if start_time is not None and probe_time < start_time - 1:
+                continue
+            if end_time is not None and request_time is not None and request_time > end_time + 1:
+                continue
+            state = (_read(item / "state.json") or {}).get("state")
+            captures.append(
+                {
+                    "capture_id": item.name,
+                    "state": state,
+                    "captured_at": request.get("captured_at"),
+                    "finished_at": response.get("finished_at"),
+                    "capture_dir": str(item),
+                    "request": str(item / "request.json"),
+                    "response": str(item / "response.json"),
+                    "response_body": str(item / "response.body")
+                    if (item / "response.body").is_file()
+                    else None,
+                }
+            )
+
+    log_files = []
+    for path in sorted(log_dir.rglob("*")):
+        if path.is_file() and path != manifest_path:
+            log_files.append(str(path.relative_to(log_dir)))
+
+    manifest = {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "agent_id": agent_id,
+        "task_log_dir": str(log_dir),
+        "harness_logs": {
+            "args": str(log_dir / "args.json"),
+            "timing": str(log_dir / "timing.json"),
+            "console": str(log_dir / "console.log"),
+            "trajectory": str(log_dir / "trajectory.jsonl"),
+            "result": str(log_dir / "result.json"),
+            "manifest": str(manifest_path),
+        },
+        "harness_log_files": log_files,
+        "capture_root": str(capture_dir) if capture_dir else None,
+        "capture_count": len(captures),
+        "captures": captures,
+    }
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return manifest_path

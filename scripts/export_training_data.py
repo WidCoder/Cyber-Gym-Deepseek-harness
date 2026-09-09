@@ -508,6 +508,11 @@ def main(argv: list[str] | None = None) -> int:
                 "vul_exit_code": verification.get("vul_exit_code"),
                 "fix_exit_code": verification.get("fix_exit_code"),
             }
+            provenance = value.get("provenance")
+            if isinstance(provenance, dict):
+                metadata["task_log_dir"] = provenance.get("task_log_dir")
+                metadata["capture_manifest"] = provenance.get("capture_manifest")
+                metadata["harness_logs"] = provenance.get("harness_logs")
     count = export(
         args.capture_dir,
         args.output,

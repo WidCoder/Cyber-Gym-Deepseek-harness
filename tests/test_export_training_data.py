@@ -3,10 +3,44 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from harness.capture import write_capture_manifest
 from scripts.export_training_data import export
 
 
 class ExportTrainingDataTest(unittest.TestCase):
+    def test_manifest_links_capture_and_harness_logs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "capture"
+            round_dir = root / "raw" / "completed" / "cap_1"
+            round_dir.mkdir(parents=True)
+            (round_dir / "request.json").write_text(
+                json.dumps({"captured_at": "2026-09-09T01:00:00+00:00"}),
+                encoding="utf-8",
+            )
+            (round_dir / "response.json").write_text(
+                json.dumps({"finished_at": "2026-09-09T01:00:01+00:00"}),
+                encoding="utf-8",
+            )
+            (round_dir / "response.body").write_text("{}", encoding="utf-8")
+            (round_dir / "state.json").write_text(
+                json.dumps({"state": "complete"}), encoding="utf-8"
+            )
+            log_dir = Path(directory) / "task-log"
+            (log_dir / "logs").mkdir(parents=True)
+            (log_dir / "console.log").write_text("event", encoding="utf-8")
+            manifest = write_capture_manifest(
+                root,
+                log_dir,
+                task_id="arvo:3569",
+                agent_id="agent-1",
+            )
+            value = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(value["capture_count"], 1)
+            self.assertEqual(value["captures"][0]["capture_id"], "cap_1")
+            self.assertEqual(value["task_id"], "arvo:3569")
+            self.assertIn("console.log", value["harness_log_files"])
+            self.assertEqual(value["captures"][0]["response_body"], str(round_dir / "response.body"))
+
     def test_openai_stream_keeps_tools_reasoning_and_tool_call(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "capture"

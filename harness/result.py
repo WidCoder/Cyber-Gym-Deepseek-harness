@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from harness.capture import summarize_captures
+from harness.capture import summarize_captures, write_capture_manifest
 from harness.trace import find_session, normalize_opencode_console, normalize_session, submit_paths
 
 
@@ -73,6 +73,13 @@ def write_result(
                 "sha256": digest,
                 "size_bytes": target.stat().st_size,
             })
+    capture_summary = summarize_captures(
+        None,
+        start_time=timing.get("start_time"),
+        end_time=timing.get("end_time"),
+    )
+    manifest_path = log_dir / "capture_manifest.json"
+    output = log_dir / "result.json"
     result: dict[str, Any] = {
         "schema_version": "1.0",
         "task": {
@@ -111,13 +118,32 @@ def write_result(
             "artifacts": artifacts,
         },
         "verification": {"status": "pending"},
-        "api_capture": summarize_captures(
-            None,
-            start_time=timing.get("start_time"),
-            end_time=timing.get("end_time"),
-        ),
+        "api_capture": {
+            **capture_summary,
+            "manifest": str(manifest_path),
+        },
+        "provenance": {
+            "task_log_dir": str(log_dir),
+            "capture_manifest": str(manifest_path),
+            "harness_logs": {
+                "args": str(log_dir / "args.json"),
+                "timing": str(timing_path),
+                "console": str(console),
+                "trajectory": str(trajectory),
+                "result": str(output),
+            },
+        },
         "generated_at": time.time(),
     }
-    output = log_dir / "result.json"
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    capture_root_value = capture_summary.get("directory")
+    capture_root = Path(capture_root_value) if isinstance(capture_root_value, str) else None
+    write_capture_manifest(
+        capture_root,
+        log_dir,
+        task_id=task.get("task_id"),
+        agent_id=task.get("agent_id"),
+        start_time=timing.get("start_time"),
+        end_time=timing.get("end_time"),
+    )
     return output

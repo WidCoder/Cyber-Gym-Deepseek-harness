@@ -36,12 +36,25 @@ After verification, a task directory contains:
 result.json       # task metadata and vul/fix exit codes
 trajectory.jsonl  # readable harness events
 train.jsonl       # one or more multi-turn training samples
+capture_manifest.json  # task log <-> capture request/response index
 ```
+
+`capture_manifest.json` is the traceability record for later data synthesis. It
+keeps the task and `agent_id`, the harness log directory, paths to
+`args.json`, `timing.json`, `console.log`, `trajectory.jsonl`, and `result.json`,
+and one entry per captured API call. Each entry points to the proxy-generated
+`request.json`, `response.json`, optional `response.body`, and its `capture_id`.
+The manifest stores paths and timing/state metadata only; it does not duplicate
+request bodies or API credentials.
 
 `train.jsonl` preserves the request `messages` and `tools`, then appends the
 assistant response reconstructed from the captured normal or streaming API
 response. HTTP headers are not exported, and API keys are redacted by the
 proxy and never copied into training data.
+
+Each training record also includes `metadata.capture_manifest`,
+`metadata.task_log_dir`, and `metadata.harness_logs`, so a synthesized sample
+can be traced back to the harness logs and its raw request/response pair.
 
 Each JSONL record uses the common OpenAI-style shape:
 
