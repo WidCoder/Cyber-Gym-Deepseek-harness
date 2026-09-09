@@ -2,9 +2,11 @@
 # 停止所有节点 cybergym 相关进程脚本
 # 读取 llm_master.txt 获取节点IP列表，支持#注释、空行
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
 # HOST_FILE="glm53flash_v10_ip.txt"
 # HOST_FILE="glm53flash_ip.txt"
-HOST_FILE="jt236_ip.txt"   
+HOST_FILE="${HOST_FILE:-jt236_ip.txt}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -22,6 +24,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "${HOST_FILE}" != /* && ! -f "${HOST_FILE}" && -f "${SCRIPT_DIR}/${HOST_FILE}" ]]; then
+    HOST_FILE="${SCRIPT_DIR}/${HOST_FILE}"
+fi
 
 if [[ ! -f "${HOST_FILE}" ]]; then
     echo "[ERROR] 文件不存在: ${HOST_FILE}" >&2

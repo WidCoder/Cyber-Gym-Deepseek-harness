@@ -226,6 +226,11 @@ export MASTER_SERVER_IP
 export SERVER_HOST="${SERVER_HOST:-${MASTER_SERVER_IP}}"
 ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
 
+if [[ -n "${CAPTURE_PROXY_UPSTREAM_URL:-}" && ! "${CAPTURE_PROXY_UPSTREAM_URL}" =~ ^https?://([A-Za-z0-9._-]+|[0-9A-Fa-f:]+)(:[0-9]{1,5})?/?$ ]]; then
+    echo "ERROR invalid CAPTURE_PROXY_UPSTREAM_URL: ${CAPTURE_PROXY_UPSTREAM_URL}" >&2
+    exit 1
+fi
+
 # 本地推理模式：强制组装正确URL，覆盖节点旧脏环境残留；网关模式保留上层传入ANTHROPIC_BASE_URL
 if [[ "${HARNESS_TYPE:-claude}" == "claude" && "${USE_DATATANG_API}" == "false" ]]; then
     export ANTHROPIC_BASE_URL="http://${MASTER_SERVER_IP}:${LLM_SERVICE_PORT}/"
@@ -237,6 +242,7 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
   CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-${log_dir}/capture_logs}"
   CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+  CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-http://${MASTER_SERVER_IP}:${llm_service_port}}"
   mkdir -p "${CAPTURE_LOG_DIR}"
   if [[ ! -f "${CAPTURE_PROXY_SCRIPT}" ]]; then
     echo "ERROR capture proxy script not found: ${CAPTURE_PROXY_SCRIPT}" >&2
@@ -245,13 +251,14 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   nohup "${CAPTURE_PROXY_PYTHON}" "${CAPTURE_PROXY_SCRIPT}" \
     --listen-host 0.0.0.0 \
     --listen-port "${CAPTURE_PROXY_PORT}" \
-    --upstream-url "http://${MASTER_SERVER_IP}:${llm_service_port}" \
+    --upstream-url "${CAPTURE_PROXY_UPSTREAM_URL}" \
     --log-dir "${CAPTURE_LOG_DIR}" \
     --timeout-seconds "${CAPTURE_PROXY_TIMEOUT:-300}" \
     > "${CAPTURE_LOG_DIR}/proxy_launch.log" 2>&1 &
   capture_proxy_pid=$!
   echo "${capture_proxy_pid}" > "${CAPTURE_LOG_DIR}/proxy.pid"
   echo "CAPTURE_PROXY_PID=${capture_proxy_pid}"
+  echo "CAPTURE_PROXY_UPSTREAM_URL=${CAPTURE_PROXY_UPSTREAM_URL}"
   export CAPTURE_LOG_DIR
   CAPTURE_BASE_URL="http://${MASTER_SERVER_IP}:${CAPTURE_PROXY_PORT}"
   if [[ "${HARNESS_TYPE:-claude}" == "claude" ]]; then
@@ -313,6 +320,7 @@ export CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
 export CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-}"
 export CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
 export CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+export CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
 export CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-}"
 export LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 export LLM_MODEL="${LLM_MODEL:-}"

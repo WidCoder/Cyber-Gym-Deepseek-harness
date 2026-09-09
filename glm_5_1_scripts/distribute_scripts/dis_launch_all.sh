@@ -10,6 +10,7 @@ set -euo pipefail
 ############################################################
 # 所有脚本、输出文件都放在这个根目录下
 ROOT_DIR="/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 ############################################################
 #  ⚠️ 常用修改项 1 / 5
@@ -54,6 +55,7 @@ CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
 CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py}"
 CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
 CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python}"
+CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
 LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 LLM_MODEL="${LLM_MODEL:-}"
 HARNESS_MODEL="${HARNESS_MODEL:-}"
@@ -73,8 +75,6 @@ EXP="jt35b-eval-cyber-v0.0.8-test"
 # TIMEOUT=7200
 TIMEOUT=15000
 PER_NODE_PROCESS=8    # 每个评测节点IP同时解决多少道题目，也是该node下worker文件夹数量
-
-bash "${ROOT_DIR}/glm_5_1_scripts/distribute_scripts/dis_stop_all.sh" --hostfile "${HOST_FILE}"
 
 ############################################################
 #  ⚠️ 常用修改项 3 / 5
@@ -120,6 +120,7 @@ Usage: $0 [OPTIONS]
 多节点CyberGym分布式调度脚本
 
 Options:
+    --capture-proxy-upstream-url URL  API capture proxy upstream LLM URL
     --exp TEXT              实验run_id
     --rerun-task-list FILE  共享存储上的重跑task列表文件
     --round-i TEXT          重跑轮次，如：1 / 2 / 3
@@ -167,6 +168,10 @@ while [[ $# -gt 0 ]]; do
             OUT_ROOT="${ROOT_DIR}/output"
             shift 2
             ;;
+        --capture-proxy-upstream-url)
+            CAPTURE_PROXY_UPSTREAM_URL="$2"
+            shift 2
+            ;;
         --harness)
             HARNESS_TYPE="$2"
             shift 2
@@ -186,6 +191,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "${HOST_FILE}" != /* && ! -f "${HOST_FILE}" && -f "${SCRIPT_DIR}/${HOST_FILE}" ]]; then
+    HOST_FILE="${SCRIPT_DIR}/${HOST_FILE}"
+fi
+
+if [[ -n "${CAPTURE_PROXY_UPSTREAM_URL}" && ! "${CAPTURE_PROXY_UPSTREAM_URL}" =~ ^https?://([A-Za-z0-9._-]+|[0-9A-Fa-f:]+)(:[0-9]{1,5})?/?$ ]]; then
+    echo "[ERROR] invalid --capture-proxy-upstream-url: ${CAPTURE_PROXY_UPSTREAM_URL}" >&2
+    exit 1
+fi
+
+bash "${ROOT_DIR}/glm_5_1_scripts/distribute_scripts/dis_stop_all.sh" --hostfile "${HOST_FILE}"
 
 if [[ "${HARNESS_TYPE}" != "claude" ]]; then
     if [[ -z "${!LLM_API_KEY_ENV:-}" ]]; then
@@ -323,6 +339,7 @@ for node_rank in "${!HOSTS[@]}"; do
         export CAPTURE_PROXY_SCRIPT='${CAPTURE_PROXY_SCRIPT}';
         export CAPTURE_PROXY_PORT='${CAPTURE_PROXY_PORT}';
         export CAPTURE_PROXY_PYTHON='${CAPTURE_PROXY_PYTHON}';
+        export CAPTURE_PROXY_UPSTREAM_URL='${CAPTURE_PROXY_UPSTREAM_URL}';
         export LLM_API_FORMAT='${LLM_API_FORMAT}';
         export LLM_MODEL='${LLM_MODEL}';
         export HARNESS_MODEL='${HARNESS_MODEL}';

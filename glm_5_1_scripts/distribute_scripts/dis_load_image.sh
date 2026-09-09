@@ -2,8 +2,13 @@
 # 并行在远端节点加载cybergym所需docker镜像包
 # IP列表读取 llm_master.txt，去除空白、注释
 
-HOST_FILE="glm53flash_ip.txt"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+HOST_FILE="${HOST_FILE:-${SCRIPT_DIR}/glm53flash_ip.txt}"
 # HOST_FILE="jt236_ip.txt"
+
+if [[ "${HOST_FILE}" != /* && ! -f "${HOST_FILE}" && -f "${SCRIPT_DIR}/${HOST_FILE}" ]]; then
+    HOST_FILE="${SCRIPT_DIR}/${HOST_FILE}"
+fi
 
 # 读取host文件，过滤注释、空行
 if [[ ! -f "${HOST_FILE}" ]]; then
