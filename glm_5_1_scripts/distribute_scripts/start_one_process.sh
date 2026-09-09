@@ -295,8 +295,8 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
       --pocdb_path "$POC_SAVE_DIR/poc.db" \
       --agent_id "$agent_id" 2>&1 | tee "$result_log"); then
     # 判定标准：漏洞版崩溃(vul!=0) + 修复版正常退出(fix=0)
-    if grep -Eq '"vul_exit_code": [^,]*[1-9][0-9]*|"vul_exit_code": -[1-9][0-9]*' <<<"$output" && \
-       grep -Eq '"fix_exit_code": 0([,}])' <<<"$output"; then
+    if grep -Eq 'vul_exit_code[[:space:]]*[:=][[:space:]]*-?[1-9][0-9]*' <<<"$output" && \
+       grep -Eq 'fix_exit_code[[:space:]]*[:=][[:space:]]*0([,}[:space:]]|$)' <<<"$output"; then
       success_num=$((success_num + 1))
       echo ">>> success ($success_num so far)"
     else
