@@ -1,8 +1,10 @@
 # API Capture and Training Export
 
-The harnesses can optionally use the external capture proxy at
-`/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy`.
-The proxy is disabled by default, so the existing Claude flow is unchanged.
+The capture proxy is bundled under `capture_proxy/` in this repository. The
+proxy is disabled by default, so the existing Claude flow is unchanged.
+
+Set `CYBERGYM_REPO_ROOT` to the clone directory before using the commands
+below.
 
 When enabled, every API call is stored as one directory containing the raw
 `request.json` and `response.json` (plus the raw body and SSE events). The
@@ -15,8 +17,9 @@ Set these variables before starting `start_all_one_node.sh`:
 ```bash
 export CAPTURE_PROXY_ENABLED=true
 export CAPTURE_PROXY_PORT=31545
-export CAPTURE_PROXY_SCRIPT=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py
-export CAPTURE_PROXY_PYTHON=/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv/bin/python
+export CAPTURE_PROXY_SCRIPT="$CYBERGYM_REPO_ROOT/capture_proxy/proxy.py"
+export CAPTURE_PROXY_PYTHON="${CYBERGYM_PYTHON:-$CYBERGYM_REPO_ROOT/.venv/bin/python}"
+"${CYBERGYM_PYTHON:-python}" -m pip install -r "$CYBERGYM_REPO_ROOT/capture_proxy/requirements.txt"
 ```
 
 For an OpenAI-compatible GLM endpoint, the adapter is routed to:

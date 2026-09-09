@@ -419,6 +419,17 @@ def _capture_in_window(round_dir: Path, start_time: float | None, end_time: floa
     return (start_time is None or last >= start_time - 1) and (end_time is None or first <= end_time + 1)
 
 
+def _capture_is_complete(round_dir: Path, response: dict[str, Any]) -> bool:
+    """Only export captures whose proxy state proves the response completed."""
+    state = _read(round_dir / "state.json") or {}
+    state_value = state.get("state")
+    if state_value is None:
+        response_state = response.get("state")
+        if isinstance(response_state, dict):
+            state_value = response_state.get("state")
+    return state_value == "complete"
+
+
 def export(
     capture_dir: Path,
     output: Path,
@@ -440,6 +451,8 @@ def export(
             request = _read(round_dir / "request.json")
             response = _read(round_dir / "response.json")
             if not request or not response:
+                continue
+            if not _capture_is_complete(round_dir, response):
                 continue
             body = _body(request)
             messages = body.get("messages")

@@ -102,7 +102,10 @@ class ExportTrainingDataTest(unittest.TestCase):
                 encoding="utf-8",
             )
             (round_dir / "response.json").write_text(
-                json.dumps({"stream": True}), encoding="utf-8"
+                json.dumps({"stream": True, "state": {"state": "complete"}}), encoding="utf-8"
+            )
+            (round_dir / "state.json").write_text(
+                json.dumps({"state": "complete"}), encoding="utf-8"
             )
             (round_dir / "response.body").write_text(
                 "data: {\"type\":\"message_start\",\"message\":{\"role\":\"assistant\"}}\n\n"
@@ -129,6 +132,32 @@ class ExportTrainingDataTest(unittest.TestCase):
             assistant = sample["messages"][-1]
             self.assertEqual(assistant["reasoning_content"], "reason")
             self.assertEqual(assistant["tool_calls"][0]["function"]["name"], "bash")
+
+    def test_partial_capture_is_not_exported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "capture"
+            round_dir = root / "raw" / "completed" / "cap_partial"
+            round_dir.mkdir(parents=True)
+            (round_dir / "request.json").write_text(
+                json.dumps({"body_json": {"messages": [{"role": "user", "content": "hello"}]}}),
+                encoding="utf-8",
+            )
+            (round_dir / "response.json").write_text(
+                json.dumps({"stream": True}), encoding="utf-8"
+            )
+            (round_dir / "state.json").write_text(
+                json.dumps({"state": "partial"}), encoding="utf-8"
+            )
+            (round_dir / "response.body").write_text(
+                'data: {"choices":[{"delta":{"role":"assistant","content":"hello"}}]}\n\n',
+                encoding="utf-8",
+            )
+            output = Path(directory) / "train.jsonl"
+            self.assertEqual(
+                export(root, output, {"task_id": "arvo:1", "model": "glm-5.3-flash"}),
+                0,
+            )
+            self.assertEqual(output.read_text(encoding="utf-8"), "")
 
 
 if __name__ == "__main__":

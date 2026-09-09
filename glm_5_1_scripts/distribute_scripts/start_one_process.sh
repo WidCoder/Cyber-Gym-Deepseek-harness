@@ -9,13 +9,31 @@ set -uo pipefail
 # 脚本自身所在目录（动态获取，彻底消除硬编码）
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # Cybergym 源码仓库根目录（唯一硬编码的源码根，其余仓库内路径均基于此拼接）
-repo_dir="/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main"
+cybergym_repo_root="${CYBERGYM_REPO_ROOT:-${ROOT_DIR:-$(cd -- "${script_dir}/../.." && pwd)}}"
+repo_dir="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main}}"
+if [[ (! -d "${repo_dir}" || ! -d "${repo_dir}/cybergym") && -d "${cybergym_repo_root}/cybergym" ]]; then
+  repo_dir="${cybergym_repo_root}"
+fi
 
 # ============================================================
 # 1. 基础环境初始化
 # ============================================================
 # 激活 Python 虚拟环境（基于仓库根路径拼接）
-source "${repo_dir}/.venv/bin/activate"
+python_bin="${CYBERGYM_PYTHON:-}"
+if [[ -z "${python_bin}" && -x "${repo_dir}/.venv/bin/python" ]]; then
+  python_bin="${repo_dir}/.venv/bin/python"
+fi
+if [[ -z "${python_bin}" ]]; then
+  python_bin="$(command -v python3 || command -v python || true)"
+fi
+if [[ -z "${python_bin}" || ! -x "${python_bin}" ]]; then
+  echo "ERROR[worker]: Python executable not found; set CYBERGYM_PYTHON" >&2
+  exit 1
+fi
+if [[ -f "${repo_dir}/.venv/bin/activate" ]]; then
+  source "${repo_dir}/.venv/bin/activate"
+fi
+export PYTHONPATH="${cybergym_repo_root}:${repo_dir}:${PYTHONPATH:-}"
 
 # 脚本使用说明
 usage() {
@@ -156,7 +174,7 @@ mkdir -p "$OUT_DIR/logs" "$OUT_DIR/tmp" "$OUT_DIR/result"
 # run_cc 脚本路径，由上层环境变量传入，做合法性校验
 RUN_CC_SCRIPT=${RUN_CC_SCRIPT_PATH:-}
 if [[ -z "${RUN_CC_SCRIPT}" || ! -f "${RUN_CC_SCRIPT}" ]]; then
-  echo "ERROR RUN_CC_SCRIPT_PATH invalid: ${RUN_CC_SCRIPT_PATH}" >&2
+  echo "ERROR RUN_CC_SCRIPT_PATH invalid: ${RUN_CC_SCRIPT:-}" >&2
   exit 1
 fi
 
@@ -167,7 +185,7 @@ if ! [[ "${TIMEOUT}" =~ ^[0-9]+$ ]] || [[ "${TIMEOUT}" -le 0 ]]; then
 fi
 
 # 验证脚本路径，优先上层环境变量，兜底原有硬编码路径
-VERIFY_SCRIPT="${VERIFY_SCRIPT_PATH:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym/scripts/verify_agent_result.py}"
+VERIFY_SCRIPT="${VERIFY_SCRIPT_PATH:-${cybergym_repo_root}/scripts/verify_agent_result.py}"
 if [[ ! -f "${VERIFY_SCRIPT}" ]]; then
   echo "ERROR verify_agent_result.py not found: ${VERIFY_SCRIPT}" >&2
   exit 1
@@ -253,7 +271,7 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
   if [[ "${HARNESS_TYPE}" == "opencode" && -n "${OPENCODE_MODEL:-}" ]]; then agent_model="${OPENCODE_MODEL}"; fi
   if [[ "${HARNESS_TYPE}" == "opencode" && "${LLM_PROVIDER:-deepseek}" == "deepseek" && -n "${DEEPSEEK_MODEL:-}" && -z "${OPENCODE_MODEL:-}" ]]; then agent_model="${DEEPSEEK_MODEL}"; fi
   if [[ -n "${LLM_MODEL:-}" ]]; then agent_model="${LLM_MODEL}"; fi
-  if ! python "${RUN_CC_SCRIPT}" \
+  if ! "${python_bin}" "${RUN_CC_SCRIPT}" \
       --image "${image}" \
       --model "$agent_model" \
       --log_dir "$OUT_DIR/logs" \
@@ -290,7 +308,7 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
 
   # 6.3 调用验证服务校验 PoC 有效性
   result_log="$OUT_DIR/result/${prefix}_${agent_id}.log"
-  if output=$(python3 "${VERIFY_SCRIPT}" \
+  if output=$("${python_bin}" "${VERIFY_SCRIPT}" \
       --server "http://${SERVER_IP}:${SERVER_PORT}" \
       --pocdb_path "$POC_SAVE_DIR/poc.db" \
       --agent_id "$agent_id" 2>&1 | tee "$result_log"); then
@@ -308,12 +326,12 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
   fi
 
   # Attach the verification outcome to the task-level structured result.
-  RESULT_SCRIPT="${RESULT_SCRIPT_PATH:-${OUT_ROOT}/../scripts/update_task_result.py}"
-  TRAINING_SCRIPT="${TRAINING_SCRIPT_PATH:-${OUT_ROOT}/../scripts/export_training_data.py}"
+  RESULT_SCRIPT="${RESULT_SCRIPT_PATH:-${cybergym_repo_root}/scripts/update_task_result.py}"
+  TRAINING_SCRIPT="${TRAINING_SCRIPT_PATH:-${cybergym_repo_root}/scripts/export_training_data.py}"
   training_output="${full_path}/train.jsonl"
   result_args=(--result "${full_path}/result.json" --verification-log "${result_log}")
   if [[ -f "${RESULT_SCRIPT}" && -f "${full_path}/result.json" ]]; then
-    python3 "${RESULT_SCRIPT}" \
+    "${python_bin}" "${RESULT_SCRIPT}" \
       "${result_args[@]}" || \
       echo "WARNING: failed to update ${full_path}/result.json" >&2
   fi
@@ -321,15 +339,15 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
   # Export only after verification has been attached, so training metadata
   # contains the final vul/fix exit codes.
   if [[ -n "${CAPTURE_LOG_DIR:-}" && -f "${TRAINING_SCRIPT}" && -f "${full_path}/result.json" ]]; then
-    start_time=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("start_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
-    end_time=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("end_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
+    start_time=$("${python_bin}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("start_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
+    end_time=$("${python_bin}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("end_time", ""))' "${full_path}/timing.json" 2>/dev/null || true)
     training_args=(--capture-dir "${CAPTURE_LOG_DIR}" --output "${training_output}" --result "${full_path}/result.json")
     [[ -n "${start_time}" ]] && training_args+=(--start-time "${start_time}")
     [[ -n "${end_time}" ]] && training_args+=(--end-time "${end_time}")
-    if python3 "${TRAINING_SCRIPT}" "${training_args[@]}"; then
+    if "${python_bin}" "${TRAINING_SCRIPT}" "${training_args[@]}"; then
       echo "training_data=${training_output}"
       result_args+=(--training-output "${training_output}")
-      python3 "${RESULT_SCRIPT}" "${result_args[@]}" || \
+      "${python_bin}" "${RESULT_SCRIPT}" "${result_args[@]}" || \
         echo "WARNING: failed to attach training data path for ${task_id}" >&2
     else
       echo "WARNING: failed to export training data for ${task_id}" >&2

@@ -9,8 +9,8 @@ set -euo pipefail
 #  ⚠️ 修改为自己目录地址
 ############################################################
 # 所有脚本、输出文件都放在这个根目录下
-ROOT_DIR="/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR="${ROOT_DIR:-$(cd -- "${SCRIPT_DIR}/../.." && pwd)}"
 
 ############################################################
 #  ⚠️ 常用修改项 1 / 5
@@ -52,11 +52,13 @@ GLM_BASE_URL="${GLM_BASE_URL:-}"
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
 OPENCODE_BASE_URL="${OPENCODE_BASE_URL:-}"
 CAPTURE_PROXY_ENABLED="${CAPTURE_PROXY_ENABLED:-false}"
-CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/hanxueming/cybergym/anthropic_full_capture_proxy/proxy.py}"
+CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-}"
 CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
-CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/.venv}"
-CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CAPTURE_PROXY_VENV}/bin/python}"
+CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-}"
+CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-}"
 CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
+CYBERGYM_PYTHON="${CYBERGYM_PYTHON:-}"
+CYBERGYM_SOURCE_DIR="${CYBERGYM_SOURCE_DIR:-}"
 LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 LLM_MODEL="${LLM_MODEL:-}"
 HARNESS_MODEL="${HARNESS_MODEL:-}"
@@ -88,7 +90,7 @@ ROUND_TAG="round${ROUND_NUM}"
 # 全量1507道题目路径
 # CYBERGYM_DATA_DIR="/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/cybergym_data/data-heyu/cybergym/data"
 # 用于拉通测试的少量题目路径-2道题
-CYBERGYM_DATA_DIR="/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main/cybergym_data/data"
+CYBERGYM_DATA_DIR="${CYBERGYM_DATA_DIR:-}"
 
 # ========== 全部基于ROOT_DIR拼接 ==========
 # 远端脚本工作目录
@@ -193,6 +195,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ -z "${CYBERGYM_DATA_DIR}" ]]; then
+    CYBERGYM_DATA_DIR="${CYBERGYM_SOURCE_DIR:-${ROOT_DIR}}/cybergym_data/data"
+fi
+
+if [[ -z "${CAPTURE_PROXY_SCRIPT}" ]]; then
+    CAPTURE_PROXY_SCRIPT="${ROOT_DIR}/capture_proxy/proxy.py"
+fi
+if [[ -z "${CAPTURE_PROXY_VENV}" && -f "${ROOT_DIR}/.venv/bin/activate" ]]; then
+    CAPTURE_PROXY_VENV="${ROOT_DIR}/.venv"
+fi
+if [[ -z "${CAPTURE_PROXY_PYTHON}" && -n "${CAPTURE_PROXY_VENV}" ]]; then
+    CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_VENV}/bin/python"
+fi
+
 if [[ "${HOST_FILE}" != /* && ! -f "${HOST_FILE}" && -f "${SCRIPT_DIR}/${HOST_FILE}" ]]; then
     HOST_FILE="${SCRIPT_DIR}/${HOST_FILE}"
 fi
@@ -272,10 +288,7 @@ if [[ ! -d "${CYBERGYM_DATA_DIR}" ]]; then
     exit 1
 fi
 
-if [[ ! -d "${OUT_ROOT}" ]]; then
-    echo "[ERROR] output root dir not found: ${OUT_ROOT}" >&2
-    exit 1
-fi
+mkdir -p "${OUT_ROOT}"
 
 if [[ -n "${RERUN_TASK_LIST}" ]]; then
     if [[ ! -f "${RERUN_TASK_LIST}" ]]; then
@@ -314,15 +327,25 @@ for node_rank in "${!HOSTS[@]}"; do
     host="${HOSTS[${node_rank}]}"
     echo ">> Submit node ${host} node_rank=${node_rank}"
 
-    ssh -n -o SendEnv="${LLM_API_KEY_ENV}" "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
+    ssh -n -o BatchMode=yes "${host}" "mkdir -p '${REMOTE_WORK_DIR}'"
 
-    ssh -n -o SendEnv="${LLM_API_KEY_ENV}" "${host}" "
+    # Pipe the API key through SSH stdin instead of embedding it in the remote
+    # command or relying on the server's AcceptEnv configuration.
+    printf '%s\n' "${!LLM_API_KEY_ENV:-}" | ssh -o BatchMode=yes "${host}" "
+        IFS= read -r __CYBERGYM_LLM_KEY || true;
+        if [[ '${HARNESS_TYPE}' != 'claude' ]]; then
+            export ${LLM_API_KEY_ENV}=\"\${__CYBERGYM_LLM_KEY}\";
+        fi;
+        unset __CYBERGYM_LLM_KEY;
         export USE_DATATANG_API='${USE_DATATANG_API}';
         export ANTHROPIC_AUTH_TOKEN='${ANTHROPIC_AUTH_TOKEN}';
         export ANTHROPIC_MODEL='${ANTHROPIC_MODEL}';
         export ANTHROPIC_BASE_URL='${ANTHROPIC_BASE_URL}';
         export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS='${CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS}';
         export ROOT_DIR='${ROOT_DIR}';
+        export CYBERGYM_REPO_ROOT='${ROOT_DIR}';
+        export CYBERGYM_PYTHON='${CYBERGYM_PYTHON}';
+        export CYBERGYM_SOURCE_DIR='${CYBERGYM_SOURCE_DIR}';
         export MASTER_SERVER_IP='${host}';
         export LLM_SERVICE_PORT='${LLM_SERVICE_PORT}';
         export HARNESS_TYPE='${HARNESS_TYPE}';
@@ -374,7 +397,7 @@ echo "Wait for all node ssh launch jobs..."
 FAIL_COUNT=0
 for pid in "${PIDS[@]}"; do
     if ! wait "${pid}"; then
-        ((FAIL_COUNT++))
+        FAIL_COUNT=$((FAIL_COUNT + 1))
         echo "[WARN] pid ${pid} corresponding node launch failed" >&2
     fi
 done

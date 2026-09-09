@@ -3,7 +3,7 @@
 本文假设 GLM-5.3-Flash 已由 SGLang 提供 OpenAI-compatible API：
 
 ```text
-http://10.17.5.153:31542/v1
+http://10.17.5.80:31542/v1
 model = glm-5.3-flash
 ```
 
@@ -22,15 +22,16 @@ API key 只通过环境变量传递。`local-sglang` 仅是本机服务所需的
 ## 统一环境变量
 
 ```bash
-export CYBERGYM_REPO=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym
-export CYBERGYM_SRC=/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main
-export CYBERGYM_DATA=$CYBERGYM_SRC/cybergym_data/data
+export CYBERGYM_REPO_ROOT=/gpfsprd/jt_kunlun/2ab867e449cf41f1a037ff3c532f1bb5/data/filestorage/wangyingqi/cybergym
+export CYBERGYM_SOURCE_DIR="${CYBERGYM_SOURCE_DIR:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main}"
+export CYBERGYM_PYTHON="$CYBERGYM_SOURCE_DIR/.venv/bin/python"
+export CYBERGYM_DATA=$CYBERGYM_SOURCE_DIR/cybergym_data/data
 
 export HARNESS_TYPE=deepseek       # deepseek 或 opencode
 export LLM_PROVIDER=glm
 export LLM_API_KEY_ENV=GLM_API_KEY
 export GLM_API_KEY=local-sglang
-export LLM_BASE_URL=http://10.17.5.153:31542/v1
+export LLM_BASE_URL=http://10.17.5.80:31542/v1
 export GLM_BASE_URL=$LLM_BASE_URL
 export LLM_API_FORMAT=openai-completions
 export LLM_MODEL=glm-5.3-flash
@@ -39,12 +40,14 @@ export DEEPSEEK_MODEL=glm-5.3-flash
 export OPENCODE_MODEL=glm-5.3-flash
 export DEEPSEEK_IMAGE=cybergym-deepseek:claude-v1
 export OPENCODE_IMAGE=cybergym-opencode:claude-v1
+export CAPTURE_PROXY_SCRIPT="$CYBERGYM_REPO_ROOT/capture_proxy/proxy.py"
+export CAPTURE_PROXY_PYTHON="$CYBERGYM_PYTHON"
 ```
 
 先确认模型服务：
 
 ```bash
-curl -fsS http://10.17.5.153:31542/v1/models
+curl -fsS http://10.17.5.80:31542/v1/models
 ```
 
 返回的 `id` 必须是 `glm-5.3-flash`。
@@ -52,16 +55,16 @@ curl -fsS http://10.17.5.153:31542/v1/models
 ## DeepSeek Harness：单任务
 
 ```bash
-source "$CYBERGYM_SRC/.venv/bin/activate"
-python "$CYBERGYM_REPO/scripts/run_tasks.py" \
+source "$CYBERGYM_SOURCE_DIR/.venv/bin/activate"
+python "$CYBERGYM_REPO_ROOT/scripts/run_tasks.py" \
   --harness deepseek \
   --task-id arvo:3569 \
   --image cybergym-deepseek:claude-v1 \
   --model glm-5.3-flash \
-  --log-dir "$CYBERGYM_REPO/output/glm-5.3-flash/dsh-single/logs" \
-  --tmp-dir "$CYBERGYM_REPO/output/glm-5.3-flash/dsh-single/tmp" \
+  --log-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/dsh-single/logs" \
+  --tmp-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/dsh-single/tmp" \
   --data-dir "$CYBERGYM_DATA" \
-  --server http://10.17.5.153:8667 \
+  --server http://10.17.5.80:8667 \
   --timeout 1800
 ```
 
@@ -70,16 +73,16 @@ python "$CYBERGYM_REPO/scripts/run_tasks.py" \
 ## OpenCode：单任务
 
 ```bash
-source "$CYBERGYM_SRC/.venv/bin/activate"
-python "$CYBERGYM_REPO/scripts/run_tasks.py" \
+source "$CYBERGYM_SOURCE_DIR/.venv/bin/activate"
+python "$CYBERGYM_REPO_ROOT/scripts/run_tasks.py" \
   --harness opencode \
   --task-id arvo:3569 \
   --image cybergym-opencode:claude-v1 \
   --model glm-5.3-flash \
-  --log-dir "$CYBERGYM_REPO/output/glm-5.3-flash/opencode-single/logs" \
-  --tmp-dir "$CYBERGYM_REPO/output/glm-5.3-flash/opencode-single/tmp" \
+  --log-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/opencode-single/logs" \
+  --tmp-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/opencode-single/tmp" \
   --data-dir "$CYBERGYM_DATA" \
-  --server http://10.17.5.153:8667 \
+  --server http://10.17.5.80:8667 \
   --timeout 1800
 ```
 
@@ -89,15 +92,15 @@ OpenCode 适配器会为每个任务生成临时 `opencode.json`，注册 `opena
 
 ```bash
 printf '%s\n' arvo:3569 arvo:10055 > /tmp/glm_tasks.txt
-python "$CYBERGYM_REPO/scripts/run_tasks.py" \
+python "$CYBERGYM_REPO_ROOT/scripts/run_tasks.py" \
   --harness deepseek \
   --task-list /tmp/glm_tasks.txt \
   --image cybergym-deepseek:claude-v1 \
   --model glm-5.3-flash \
-  --log-dir "$CYBERGYM_REPO/output/glm-5.3-flash/dsh-list/logs" \
-  --tmp-dir "$CYBERGYM_REPO/output/glm-5.3-flash/dsh-list/tmp" \
+  --log-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/dsh-list/logs" \
+  --tmp-dir "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash/dsh-list/tmp" \
   --data-dir "$CYBERGYM_DATA" \
-  --server http://10.17.5.153:8667 \
+  --server http://10.17.5.80:8667 \
   --timeout 1800
 ```
 
@@ -114,7 +117,7 @@ LLM_SERVICE_PORT=31542
 HARNESS_TYPE="deepseek"       # 或 opencode
 LLM_PROVIDER="glm"
 LLM_API_KEY_ENV="GLM_API_KEY"
-LLM_BASE_URL="http://10.17.5.153:31542/v1"
+LLM_BASE_URL="http://10.17.5.80:31542/v1"
 GLM_BASE_URL="$LLM_BASE_URL"
 LLM_API_FORMAT="openai-completions"
 LLM_MODEL="glm-5.3-flash"
@@ -132,9 +135,9 @@ export GLM_API_KEY=local-sglang
 然后运行：
 
 ```bash
-cd "$CYBERGYM_REPO"
+cd "$CYBERGYM_REPO_ROOT"
 bash glm_5_1_scripts/distribute_scripts/dis_launch_all.sh \
-  --root-dir "$CYBERGYM_REPO" \
+  --root-dir "$CYBERGYM_REPO_ROOT" \
   --host-file glm53flash_ip.txt \
   --server-port 8667
 ```
@@ -159,13 +162,13 @@ run_deepseek.py        run_opencode.py
    |                       |
 Docker DeepSeek 镜像    Docker OpenCode 镜像
    |                       |
-       http://10.17.5.153:31542/v1
+       http://10.17.5.80:31542/v1
                     |
              GLM SGLang 服务
                     |
   Agent 在 /workspace 生成 PoC 并调用 submit.sh
                     |
-CyberGym 验证服务 http://10.17.5.153:8667
+CyberGym 验证服务 http://10.17.5.80:8667
 ```
 
 DeepSeek Harness 的 GLM 关键配置是 `cybergym-openai` provider、`openai-completions`、`baseURL` 和模型 ID；OpenCode 的关键配置是 `openai/glm-5.3-flash`。两条路径都会将任务工作目录挂载到 `/workspace`，再将日志写回个人仓库。
@@ -173,7 +176,7 @@ DeepSeek Harness 的 GLM 关键配置是 `cybergym-openai` provider、`openai-co
 ## 日志和排错
 
 ```bash
-find "$CYBERGYM_REPO/output/glm-5.3-flash" -name console.log -o -name timing.json
+find "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash" \( -name console.log -o -name timing.json \)
 docker logs --since 5m glm53
 ```
 
