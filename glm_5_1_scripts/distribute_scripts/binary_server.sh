@@ -14,12 +14,16 @@ source "${repo_dir}/.venv/bin/activate"
 # 服务配置（优先从环境变量读取，由上层调度脚本传入）
 # ============================================================
 # 服务监听 IP：自动获取本机 10.17 段地址
-SERVER_IP=$(
-  ifconfig |
-    awk '/inet / {print $2}' |
-    grep '^10\.17\.' |
-    head -n 1
-)
+SERVER_IP="${SERVER_HOST:-${MASTER_SERVER_IP:-}}"
+
+if [[ -z "$SERVER_IP" ]]; then
+  SERVER_IP=$(
+    ifconfig |
+      awk '/inet / {print $2}' |
+      grep '^10\.17\.' |
+      head -n 1
+  )
+fi
 
 if [[ -z "$SERVER_IP" ]]; then
   echo "ERROR: 没有找到 10.17 开头的本机 IP" >&2

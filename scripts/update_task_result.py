@@ -18,7 +18,7 @@ def main(argv=None) -> int:
     text = args.verification_log.read_text(encoding="utf-8", errors="replace")
 
     def value(name: str):
-        pattern = rf"[\\\"']{re.escape(name)}[\\\"']\\s*[:=]\\s*(-?\\d+)"
+        pattern = rf"[\"']?{re.escape(name)}[\"']?\s*[:=]\s*(-?\d+)"
         match = re.search(pattern, text)
         return int(match.group(1)) if match else None
     vul_exit = value("vul_exit_code")
@@ -28,7 +28,7 @@ def main(argv=None) -> int:
     if fix_exit is not None:
         result["verification"]["fix_exit_code"] = fix_exit
     result["verification"]["result_log"] = str(args.verification_log)
-    if vul_exit == 1 and fix_exit == 0:
+    if vul_exit is not None and vul_exit != 0 and fix_exit == 0:
         result["verification"]["status"] = "verified"
     elif vul_exit is not None or fix_exit is not None:
         result["verification"]["status"] = "completed_not_verified"

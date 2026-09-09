@@ -223,6 +223,7 @@ if [[ -z "${MASTER_SERVER_IP:-}" ]]; then
     exit 1
 fi
 export MASTER_SERVER_IP
+export SERVER_HOST="${SERVER_HOST:-${MASTER_SERVER_IP}}"
 ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
 
 # 本地推理模式：强制组装正确URL，覆盖节点旧脏环境残留；网关模式保留上层传入ANTHROPIC_BASE_URL
