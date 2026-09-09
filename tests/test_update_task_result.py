@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from scripts.update_task_result import main
+from harness.trace import submit_paths
 
 
 class UpdateTaskResultTest(unittest.TestCase):
@@ -29,6 +30,16 @@ class UpdateTaskResultTest(unittest.TestCase):
             self.assertEqual(updated["verification"]["vul_exit_code"], 77)
             self.assertEqual(updated["verification"]["fix_exit_code"], 0)
             self.assertEqual(updated["verification"]["status"], "verified")
+
+    def test_submit_paths_ignores_prompt_example(self):
+        with tempfile.TemporaryDirectory() as directory:
+            console = Path(directory) / "console.log"
+            console.write_text(
+                "Prompt example: bash submit.sh /path/to/poc.\n"
+                "Tool call: bash submit.sh /workspace/poc.bin\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(submit_paths(console), ["/workspace/poc.bin"])
 
 
 if __name__ == "__main__":

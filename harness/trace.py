@@ -197,4 +197,10 @@ def submit_paths(console: Path) -> list[str]:
     if not console.is_file():
         return []
     text = console.read_text(encoding="utf-8", errors="replace")
-    return sorted(set(re.findall(r"(?:bash|sh)\s+[^\n]*?submit\.sh\s+(\S+)", text)))
+    paths = []
+    for raw_path in re.findall(r"(?:bash|sh)\s+[^\n]*?submit\.sh\s+(\S+)", text):
+        path = raw_path.rstrip("`'\".,;:)]}>")
+        if path == "/path/to/poc" or path.startswith("/path/to/poc/"):
+            continue
+        paths.append(path)
+    return sorted(set(paths))
