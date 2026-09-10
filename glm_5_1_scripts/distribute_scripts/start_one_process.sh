@@ -265,6 +265,13 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   capture_proxy_base_url="http://${MASTER_SERVER_IP}:${capture_proxy_port}"
   if [[ "${HARNESS_TYPE}" == "claude" ]]; then
     export ANTHROPIC_BASE_URL="${capture_proxy_base_url}"
+  elif [[ "${LLM_API_FORMAT:-}" == "anthropic-messages" || "${LLM_PROVIDER:-}" == "anthropic" || "${LLM_PROVIDER:-}" == "claude" ]]; then
+    # The Anthropic client appends /v1/messages itself. Supplying /v1 here
+    # would produce the invalid proxy path /v1/v1/messages.
+    export LLM_BASE_URL="${capture_proxy_base_url}"
+    export GLM_BASE_URL="${capture_proxy_base_url}"
+    export OPENAI_BASE_URL="${capture_proxy_base_url}"
+    export OPENCODE_BASE_URL="${capture_proxy_base_url}"
   else
     export LLM_BASE_URL="${capture_proxy_base_url}/v1"
     export GLM_BASE_URL="${capture_proxy_base_url}/v1"
