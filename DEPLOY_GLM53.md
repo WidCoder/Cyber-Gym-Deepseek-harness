@@ -61,6 +61,10 @@ The upstream value intentionally has no `/v1`. The proxy appends the incoming
 request path, so Harness traffic becomes
 `http://10.17.5.80:31542/v1/chat/completions`.
 
+Do not set `LLM_PROVIDER=anthropic` merely because the DSH adapter supports the
+`anthropic-messages` API. First run the Anthropic probe below. The GLM service
+must natively accept `POST /v1/messages` and return Anthropic SSE events.
+
 Check the model service before evaluating:
 
 ```bash
@@ -78,6 +82,28 @@ CAPTURE_PROXY_UPSTREAM_URL=http://10.17.5.80:31542 LLM_MODEL=glm-5.3-flash "$CYB
 Success ends with `SINGLE_OPENAI_CAPTURE_TEST=PASS`. It proves the proxy is
 reachable, GLM returned an OpenAI SSE stream, `[DONE]` was received, and the
 capture was persisted with `state=complete`.
+
+For an Anthropic Messages compatibility check, run:
+
+```bash
+CAPTURE_PROXY_PYTHON="$CYBERGYM_PYTHON" \
+CAPTURE_PROXY_UPSTREAM_URL=http://10.17.5.80:31542 \
+LLM_MODEL=glm-5.3-flash \
+"$CYBERGYM_REPO_ROOT/scripts/test_capture_proxy_anthropic.sh"
+```
+
+Only if this prints `SINGLE_ANTHROPIC_CAPTURE_TEST=PASS` may an Anthropic-mode
+evaluation use:
+
+```bash
+export LLM_PROVIDER=anthropic
+export LLM_API_KEY_ENV=GLM_API_KEY
+export LLM_API_FORMAT=anthropic-messages
+```
+
+If it fails with 404/405/501 or an OpenAI-shaped response, keep
+`LLM_PROVIDER=glm` and `LLM_API_FORMAT=openai-completions`. The bundled proxy
+is transparent; it does not translate between the two protocols.
 
 ## 5. Full distributed evaluation
 

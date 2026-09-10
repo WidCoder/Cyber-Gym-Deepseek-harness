@@ -144,6 +144,8 @@ class AnthropicMessageAggregator:
     原始 SSE 始终另行保存；聚合失败只会让 complete=false，不会丢掉原始响应。
     """
 
+    protocol = "anthropic-messages"
+
     def __init__(self) -> None:
         self.message: Optional[dict[str, Any]] = None
         self.complete = False
@@ -674,6 +676,14 @@ class RequestCapture:
 
         aggregation_complete = bool(aggregator and aggregator.complete)
         stream_complete = bool(self._decoder and self._decoder.done)
+        request_path = str(self.request_record.get("path") or "").rstrip("/")
+        protocol = getattr(aggregator, "protocol", None) if aggregator is not None else None
+        if protocol is None:
+            if request_path in {"/v1/messages", "/messages"}:
+                protocol = "anthropic-messages"
+            elif request_path in {"/v1/chat/completions", "/chat/completions"}:
+                protocol = "openai-chat-completions"
+
         self.response_record.update(
             {
                 "finished_at": utc_timestamp(),
@@ -690,7 +700,7 @@ class RequestCapture:
                 "message": aggregator.snapshot() if aggregator is not None else non_stream_json,
                 "aggregation_complete": aggregation_complete if aggregator is not None else None,
                 "stream_complete": stream_complete if self._decoder is not None else None,
-                "protocol": getattr(aggregator, "protocol", None) if aggregator is not None else None,
+                "protocol": protocol,
                 "finish_reason": getattr(aggregator, "finish_reason", None) if aggregator is not None else None,
                 "usage": getattr(aggregator, "usage", None) if aggregator is not None else None,
                 "aggregation_errors": aggregator.errors if aggregator is not None else [],

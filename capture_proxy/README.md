@@ -42,6 +42,21 @@ Health check:
 curl -fsS http://127.0.0.1:31545/healthz
 ```
 
+To verify that the upstream really implements Anthropic Messages (rather than
+only OpenAI Chat Completions), run the bundled end-to-end probe:
+
+```bash
+CAPTURE_PROXY_PYTHON="$CYBERGYM_PYTHON" \
+CAPTURE_PROXY_UPSTREAM_URL=http://10.17.5.80:31542 \
+LLM_MODEL=glm-5.3-flash \
+scripts/test_capture_proxy_anthropic.sh
+```
+
+The probe requires HTTP 200 from `/v1/messages`, Anthropic SSE events ending
+in `message_stop`, and a persisted `state=complete` capture. A 404/405/501 or
+an OpenAI `choices` response means the upstream is not Anthropic-compatible;
+do not switch the Harness to `anthropic-messages` in that case.
+
 The raw capture is stored below `capture_logs/raw/completed/<capture_id>`.
 `state.json` is `complete` for a successfully terminated stream and `partial`
 for a transport error, client disconnect, or missing stream terminator.
