@@ -246,7 +246,10 @@ fi
 if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-${CYBERGYM_REPO_ROOT}/capture_proxy/proxy.py}"
   CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
-  CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-${log_dir}/capture_logs}"
+  # Always isolate captures by run/round/node. A stale CAPTURE_LOG_DIR from a
+  # previous shell session would otherwise make new task results point at old
+  # captures and can mix unrelated requests into one experiment.
+  CAPTURE_LOG_DIR="${log_dir}/capture_logs"
   CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-}"
   CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CYBERGYM_PYTHON:-}}"
   proxy_runtime_root="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-}}"
@@ -292,6 +295,27 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   echo "${capture_proxy_pid}" > "${CAPTURE_LOG_DIR}/proxy.pid"
   echo "CAPTURE_PROXY_PID=${capture_proxy_pid}"
   echo "CAPTURE_PROXY_UPSTREAM_URL=${CAPTURE_PROXY_UPSTREAM_URL}"
+  proxy_ready=false
+  for _ in $(seq 1 "${CAPTURE_PROXY_STARTUP_TIMEOUT:-30}"); do
+    if ! kill -0 "${capture_proxy_pid}" 2>/dev/null; then
+      echo "ERROR capture proxy exited during startup; log=${CAPTURE_LOG_DIR}/proxy_launch.log" >&2
+      tail -50 "${CAPTURE_LOG_DIR}/proxy_launch.log" >&2 || true
+      exit 1
+    fi
+    if curl -fsS --max-time 2 "http://127.0.0.1:${CAPTURE_PROXY_PORT}/healthz" \
+      > "${CAPTURE_LOG_DIR}/healthz.json" 2>/dev/null; then
+      proxy_ready=true
+      break
+    fi
+    sleep 1
+  done
+  if [[ "${proxy_ready}" != true ]]; then
+    echo "ERROR capture proxy did not become ready on port ${CAPTURE_PROXY_PORT}; log=${CAPTURE_LOG_DIR}/proxy_launch.log" >&2
+    tail -50 "${CAPTURE_LOG_DIR}/proxy_launch.log" >&2 || true
+    kill "${capture_proxy_pid}" 2>/dev/null || true
+    exit 1
+  fi
+  echo "CAPTURE_PROXY_READY=true"
   export CAPTURE_LOG_DIR
   CAPTURE_BASE_URL="http://${MASTER_SERVER_IP}:${CAPTURE_PROXY_PORT}"
   if [[ "${HARNESS_TYPE:-claude}" == "claude" ]]; then
