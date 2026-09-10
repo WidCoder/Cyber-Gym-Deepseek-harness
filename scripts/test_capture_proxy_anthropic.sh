@@ -25,6 +25,11 @@ upstream_url="${CAPTURE_PROXY_UPSTREAM_URL:-http://10.17.5.80:31542}"
 model="${LLM_MODEL:-glm-5.3-flash}"
 port="${CAPTURE_PROXY_TEST_PORT:-31547}"
 key="${GLM_API_KEY:-${ANTHROPIC_API_KEY:-local-sglang}}"
+max_tokens="${ANTHROPIC_TEST_MAX_TOKENS:-128}"
+if [[ ! "${max_tokens}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: ANTHROPIC_TEST_MAX_TOKENS must be a positive integer" >&2
+  exit 1
+fi
 if [[ -n "${CAPTURE_PROXY_TEST_DIR:-}" ]]; then
   capture_dir="${CAPTURE_PROXY_TEST_DIR}"
 else
@@ -80,7 +85,7 @@ fi
 request_body="${capture_dir}/request.json"
 response_body="${capture_dir}/messages-response.body"
 response_headers="${capture_dir}/messages-response.headers"
-printf '%s\n' "{\"model\":\"${model}\",\"max_tokens\":32,\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Reply with exactly OK\"}]}],\"stream\":true}" >"${request_body}"
+printf '%s\n' "{\"model\":\"${model}\",\"max_tokens\":${max_tokens},\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Return exactly OK in the final answer.\"}]}],\"stream\":true}" >"${request_body}"
 
 set +e
 http_code=$(curl -sS -N --max-time "${CAPTURE_PROXY_REQUEST_TIMEOUT:-60}" \
@@ -137,8 +142,15 @@ assert response.get("message_id"), response
 assert b'"type":"message_stop"' in body or b'"type": "message_stop"' in body, "Anthropic stream has no message_stop"
 message = response.get("message") or {}
 content = message.get("content") or []
-assert any(isinstance(block, dict) and block.get("text") for block in content), response
+assert message.get("role") == "assistant", response
+assert isinstance(content, list), response
+block_types = [
+    block.get("type")
+    for block in content
+    if isinstance(block, dict) and isinstance(block.get("type"), str)
+]
 print(f"SINGLE_ANTHROPIC_CAPTURE_TEST=PASS capture_id={directory.name} message_id={response['message_id']}")
+print(f"anthropic_block_types={block_types} stop_reason={message.get('stop_reason')}")
 PY
 
 echo "capture_dir=${capture_dir}"

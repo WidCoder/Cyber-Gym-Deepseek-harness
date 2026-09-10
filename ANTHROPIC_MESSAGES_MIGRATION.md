@@ -82,6 +82,10 @@ The test requires all of the following:
 - a persisted capture with `state=complete` and
   `protocol=anthropic-messages`.
 
+The probe does not require the model to emit a text block. Reasoning-enabled
+models can spend a small `max_tokens` budget entirely on `thinking`; that is a
+valid Anthropic response and still proves the protocol and capture path.
+
 If the result is 404, 405, 501, 502, or an OpenAI-shaped response, keep the
 current GLM configuration:
 

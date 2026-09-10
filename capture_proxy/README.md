@@ -53,7 +53,8 @@ scripts/test_capture_proxy_anthropic.sh
 ```
 
 The probe requires HTTP 200 from `/v1/messages`, Anthropic SSE events ending
-in `message_stop`, and a persisted `state=complete` capture. A 404/405/501 or
+in `message_stop`, and a persisted `state=complete` capture. It accepts text,
+thinking, and tool-use content blocks; a 404/405/501 or
 an OpenAI `choices` response means the upstream is not Anthropic-compatible;
 do not switch the Harness to `anthropic-messages` in that case.
 
