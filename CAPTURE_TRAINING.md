@@ -50,10 +50,40 @@ and one entry per captured API call. Each entry points to the proxy-generated
 The manifest stores paths and timing/state metadata only; it does not duplicate
 request bodies or API credentials.
 
-`train.jsonl` preserves the request `messages` and `tools`, then appends the
-assistant response reconstructed from the captured normal or streaming API
-response. HTTP headers are not exported, and API keys are redacted by the
-proxy and never copied into training data.
+The worker-level `train.jsonl` preserves one request's `messages` and `tools`,
+then appends the assistant response reconstructed from the captured normal or
+streaming API response. HTTP headers are not exported, and API keys are
+redacted by the proxy and never copied into training data.
+
+For one complete multi-turn sample per task, run the offline finalization step
+after the round has ended:
+
+```bash
+python scripts/export_task_trajectories.py \
+  --run-dir /path/to/output/glm-5.3-flash/<experiment>/round1 \
+  --output /path/to/output/glm-5.3-flash/<experiment>/round1/task_trajectories.jsonl
+```
+
+This command uses each task's `capture_manifest.json` as the task boundary.
+It requires every referenced capture to have `state=complete`, a 2xx response,
+and no transport error. Consecutive requests are joined only when the next
+request contains the previous normalized conversation as an exact prefix; a
+real context reset starts a new segment instead of silently inventing history.
+The adjacent `.report.json` records skipped tasks and shared capture IDs.
+
+For data produced by the pre-`95bd83b` proxy, add
+`--recover-terminal-sse` once. It only recovers legacy `state=partial` captures
+whose clean 2xx raw body contains `data: [DONE]`; it does not recover 502s,
+transport errors, or streams without a terminal marker.
+
+The proxy and Harness remain online-transparent: capture and aggregation happen
+after each task, so a failed export cannot change whether the Harness reaches
+verification. Do not use `--allow-shared-captures` for a strict dataset unless
+the report has been manually reviewed.
+
+Use `scripts/analyze_run.py` to inspect a completed round. It reports result,
+verification, proxy status codes, capture states, `[DONE]` markers, and
+available trajectory/training files without printing request bodies or keys.
 
 Each training record also includes `metadata.capture_manifest`,
 `metadata.task_log_dir`, and `metadata.harness_logs`, so a synthesized sample
@@ -100,6 +130,8 @@ python scripts/export_training_data.py \
 The exporter accepts OpenAI-compatible Chat Completions and Anthropic
 Messages response shapes. Incomplete or unparseable responses are skipped.
 
-When capture is enabled by the distributed launcher, the proxy PID is saved as
-`capture_logs/proxy.pid`. A watchdog removes the proxy after all workers in
-the round have exited, so the configured port can be reused by the next round.
+When capture is enabled by the distributed launcher, each worker owns an
+independent proxy and capture root: `<worker-output>/capture_logs`, with port
+`CAPTURE_PROXY_PORT + local_rank`. The worker removes its proxy on exit, so the
+port can be reused by the next round. This per-worker ownership is required for
+reliable task association when several workers run concurrently.

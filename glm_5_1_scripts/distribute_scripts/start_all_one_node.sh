@@ -199,7 +199,6 @@ POC_SAVE_DIR="${out_root}/${model}/${run_id}/server_poc"
 mkdir -p "${POC_SAVE_DIR}"
 
 total_workers=$((node_count * workers_per_node))
-capture_proxy_pid=""
 declare -a worker_pids=()
 
 # # -------------------------- 閮ㄧ讲鎷︽埅API璇锋眰鐨凱roxy寮€濮� --------------------------
@@ -230,6 +229,24 @@ script_repo_root=$(cd -- "${script_dir}/../.." && pwd)
 export CYBERGYM_REPO_ROOT="${CYBERGYM_REPO_ROOT:-${script_repo_root}}"
 export CYBERGYM_SOURCE_DIR="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-}}"
 export CYBERGYM_PYTHON="${CYBERGYM_PYTHON:-}"
+
+# Resolve the runtime on this node before starting the server/workers. The
+# controller may have exported a Python path that exists only on its host.
+runtime_helper="${CYBERGYM_REPO_ROOT}/scripts/resolve_cybergym_runtime.sh"
+if [[ ! -f "${runtime_helper}" ]]; then
+  echo "ERROR: runtime helper not found: ${runtime_helper}" >&2
+  exit 1
+fi
+source "${runtime_helper}"
+if ! cybergym_resolve_runtime; then
+  echo "ERROR: unable to resolve a usable CyberGym runtime on $(hostname)" >&2
+  exit 1
+fi
+export CYBERGYM_SOURCE_DIR="${CYBERGYM_RUNTIME_DIR}"
+export CYBERGYM_PYTHON="${CYBERGYM_RUNTIME_PYTHON}"
+export REPO_DIR="${CYBERGYM_RUNTIME_DIR}"
+echo "CYBERGYM_SOURCE_DIR=${CYBERGYM_SOURCE_DIR}"
+echo "CYBERGYM_PYTHON=${CYBERGYM_PYTHON}"
 ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
 
 if [[ -n "${CAPTURE_PROXY_UPSTREAM_URL:-}" && ! "${CAPTURE_PROXY_UPSTREAM_URL}" =~ ^https?://([A-Za-z0-9._-]+|[0-9A-Fa-f:]+)(:[0-9]{1,5})?/?$ ]]; then
@@ -246,10 +263,6 @@ fi
 if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   CAPTURE_PROXY_SCRIPT="${CAPTURE_PROXY_SCRIPT:-${CYBERGYM_REPO_ROOT}/capture_proxy/proxy.py}"
   CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
-  # Always isolate captures by run/round/node. A stale CAPTURE_LOG_DIR from a
-  # previous shell session would otherwise make new task results point at old
-  # captures and can mix unrelated requests into one experiment.
-  CAPTURE_LOG_DIR="${log_dir}/capture_logs"
   CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-}"
   CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CYBERGYM_PYTHON:-}}"
   proxy_runtime_root="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-}}"
@@ -268,8 +281,11 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
   if [[ -z "${CAPTURE_PROXY_PYTHON}" ]]; then
     CAPTURE_PROXY_PYTHON="$(command -v python3 || command -v python || true)"
   fi
+  if [[ -n "${CAPTURE_PROXY_PYTHON}" && ! -x "${CAPTURE_PROXY_PYTHON}" ]]; then
+    echo "WARNING: ignoring non-executable CAPTURE_PROXY_PYTHON on this host: ${CAPTURE_PROXY_PYTHON}" >&2
+    CAPTURE_PROXY_PYTHON="$(command -v python3 || command -v python || true)"
+  fi
   CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-http://${MASTER_SERVER_IP}:${llm_service_port}}"
-  mkdir -p "${CAPTURE_LOG_DIR}"
   if [[ ! -f "${CAPTURE_PROXY_SCRIPT}" ]]; then
     echo "ERROR capture proxy script not found: ${CAPTURE_PROXY_SCRIPT}" >&2
     exit 1
@@ -278,54 +294,10 @@ if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
     echo "ERROR capture proxy Python not executable: ${CAPTURE_PROXY_PYTHON}" >&2
     exit 1
   fi
-  if [[ -n "${CAPTURE_PROXY_VENV}" && -f "${CAPTURE_PROXY_VENV}/bin/activate" ]]; then
-    source "${CAPTURE_PROXY_VENV}/bin/activate"
-  fi
-  echo "CAPTURE_PROXY_VENV=${VIRTUAL_ENV:-}"
+  echo "CAPTURE_PROXY_MODE=per-worker"
+  echo "CAPTURE_PROXY_SCRIPT=${CAPTURE_PROXY_SCRIPT}"
   echo "CAPTURE_PROXY_PYTHON=${CAPTURE_PROXY_PYTHON}"
-  "${CAPTURE_PROXY_PYTHON}" --version
-  nohup "${CAPTURE_PROXY_PYTHON}" "${CAPTURE_PROXY_SCRIPT}" \
-    --listen-host 0.0.0.0 \
-    --listen-port "${CAPTURE_PROXY_PORT}" \
-    --upstream-url "${CAPTURE_PROXY_UPSTREAM_URL}" \
-    --log-dir "${CAPTURE_LOG_DIR}" \
-    --timeout-seconds "${CAPTURE_PROXY_TIMEOUT:-300}" \
-    > "${CAPTURE_LOG_DIR}/proxy_launch.log" 2>&1 &
-  capture_proxy_pid=$!
-  echo "${capture_proxy_pid}" > "${CAPTURE_LOG_DIR}/proxy.pid"
-  echo "CAPTURE_PROXY_PID=${capture_proxy_pid}"
   echo "CAPTURE_PROXY_UPSTREAM_URL=${CAPTURE_PROXY_UPSTREAM_URL}"
-  proxy_ready=false
-  for _ in $(seq 1 "${CAPTURE_PROXY_STARTUP_TIMEOUT:-30}"); do
-    if ! kill -0 "${capture_proxy_pid}" 2>/dev/null; then
-      echo "ERROR capture proxy exited during startup; log=${CAPTURE_LOG_DIR}/proxy_launch.log" >&2
-      tail -50 "${CAPTURE_LOG_DIR}/proxy_launch.log" >&2 || true
-      exit 1
-    fi
-    if curl -fsS --max-time 2 "http://127.0.0.1:${CAPTURE_PROXY_PORT}/healthz" \
-      > "${CAPTURE_LOG_DIR}/healthz.json" 2>/dev/null; then
-      proxy_ready=true
-      break
-    fi
-    sleep 1
-  done
-  if [[ "${proxy_ready}" != true ]]; then
-    echo "ERROR capture proxy did not become ready on port ${CAPTURE_PROXY_PORT}; log=${CAPTURE_LOG_DIR}/proxy_launch.log" >&2
-    tail -50 "${CAPTURE_LOG_DIR}/proxy_launch.log" >&2 || true
-    kill "${capture_proxy_pid}" 2>/dev/null || true
-    exit 1
-  fi
-  echo "CAPTURE_PROXY_READY=true"
-  export CAPTURE_LOG_DIR
-  CAPTURE_BASE_URL="http://${MASTER_SERVER_IP}:${CAPTURE_PROXY_PORT}"
-  if [[ "${HARNESS_TYPE:-claude}" == "claude" ]]; then
-    export ANTHROPIC_BASE_URL="${CAPTURE_BASE_URL}"
-  else
-    export LLM_BASE_URL="${CAPTURE_BASE_URL}/v1"
-    export GLM_BASE_URL="${CAPTURE_BASE_URL}/v1"
-    export OPENAI_BASE_URL="${CAPTURE_BASE_URL}/v1"
-    export OPENCODE_BASE_URL="${CAPTURE_BASE_URL}/v1"
-  fi
 fi
 
 echo "run_id=$run_id round_i(tag)=$round_i ROUND_TAG(env)=$ROUND_TAG node=$node_rank/$node_count local_workers=$workers_per_node global_workers=$total_workers"
@@ -379,7 +351,9 @@ export CAPTURE_PROXY_PORT="${CAPTURE_PROXY_PORT:-31545}"
 export CAPTURE_PROXY_VENV="${CAPTURE_PROXY_VENV:-}"
 export CAPTURE_PROXY_PYTHON="${CAPTURE_PROXY_PYTHON:-${CYBERGYM_PYTHON:-}}"
 export CAPTURE_PROXY_UPSTREAM_URL="${CAPTURE_PROXY_UPSTREAM_URL:-}"
-export CAPTURE_LOG_DIR="${CAPTURE_LOG_DIR:-}"
+# Per-worker capture owns CAPTURE_LOG_DIR. Clear stale shell values so a run
+# cannot accidentally export data from an old shared capture root.
+export CAPTURE_LOG_DIR=""
 export LLM_API_FORMAT="${LLM_API_FORMAT:-}"
 export LLM_MODEL="${LLM_MODEL:-}"
 export HARNESS_MODEL="${HARNESS_MODEL:-}"
@@ -406,7 +380,7 @@ fi
 # 缁欓獙璇佹湇鍔′笓鐢ㄧ殑鐜�澧冨彉閲�
 export POC_SAVE_DIR
 export SERVER_PORT="${SERVER_PORT:-8666}"
-export REPO_DIR="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main}}"
+export REPO_DIR="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-${CYBERGYM_REPO_ROOT}}}"
 
 # 鍚�鍔ㄨ瘎娴媠erver
 mkdir -p poc_server_logs
@@ -433,27 +407,3 @@ for ((local_rank=0; local_rank < workers_per_node; local_rank++)); do
   echo "$pid" >"$pid_file"
   echo "started local_rank=$local_rank global_shard=$global_rank/$total_workers pid=$pid log=$log_file"
 done
-
-# Keep the optional capture proxy alive for this round, then clean it up so a
-# later round can reuse the same port. The proxy is deliberately independent
-# from the legacy Claude path and is only watched when capture is enabled.
-if [[ -n "${capture_proxy_pid}" ]]; then
-  (
-    while :; do
-      workers_alive=false
-      for worker_pid in "${worker_pids[@]}"; do
-        if kill -0 "${worker_pid}" 2>/dev/null; then
-          workers_alive=true
-          break
-        fi
-      done
-      if [[ "${workers_alive}" != true ]]; then
-        kill "${capture_proxy_pid}" 2>/dev/null || true
-        rm -f "${CAPTURE_LOG_DIR}/proxy.pid"
-        exit 0
-      fi
-      sleep 5
-    done
-  ) >> "${CAPTURE_LOG_DIR}/proxy_watchdog.log" 2>&1 &
-  echo "$!" > "${CAPTURE_LOG_DIR}/proxy_watchdog.pid"
-fi

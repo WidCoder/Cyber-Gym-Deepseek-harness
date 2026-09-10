@@ -10,29 +10,34 @@ set -uo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # Cybergym 源码仓库根目录（唯一硬编码的源码根，其余仓库内路径均基于此拼接）
 cybergym_repo_root="${CYBERGYM_REPO_ROOT:-${ROOT_DIR:-$(cd -- "${script_dir}/../.." && pwd)}}"
-repo_dir="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main}}"
-if [[ (! -d "${repo_dir}" || ! -d "${repo_dir}/cybergym") && -d "${cybergym_repo_root}/cybergym" ]]; then
-  repo_dir="${cybergym_repo_root}"
+runtime_helper="${cybergym_repo_root}/scripts/resolve_cybergym_runtime.sh"
+if [[ ! -f "${runtime_helper}" ]]; then
+  echo "ERROR[worker]: runtime helper not found: ${runtime_helper}" >&2
+  exit 1
 fi
+source "${runtime_helper}"
+if ! cybergym_resolve_runtime; then
+  echo "ERROR[worker]: unable to resolve a usable CyberGym runtime on $(hostname)" >&2
+  exit 1
+fi
+repo_dir="${CYBERGYM_RUNTIME_DIR}"
 
 # ============================================================
 # 1. 基础环境初始化
 # ============================================================
 # 激活 Python 虚拟环境（基于仓库根路径拼接）
-python_bin="${CYBERGYM_PYTHON:-}"
-if [[ -z "${python_bin}" && -x "${repo_dir}/.venv/bin/python" ]]; then
-  python_bin="${repo_dir}/.venv/bin/python"
-fi
-if [[ -z "${python_bin}" ]]; then
-  python_bin="$(command -v python3 || command -v python || true)"
-fi
-if [[ -z "${python_bin}" || ! -x "${python_bin}" ]]; then
-  echo "ERROR[worker]: Python executable not found; set CYBERGYM_PYTHON" >&2
-  exit 1
-fi
-if [[ -f "${repo_dir}/.venv/bin/activate" ]]; then
+python_bin="${CYBERGYM_RUNTIME_PYTHON}"
+if [[ -n "${CAPTURE_PROXY_VENV:-}" && -f "${CAPTURE_PROXY_VENV}/bin/activate" ]]; then
+  source "${CAPTURE_PROXY_VENV}/bin/activate"
+elif [[ -f "${repo_dir}/.venv/bin/activate" ]]; then
   source "${repo_dir}/.venv/bin/activate"
 fi
+echo "CYBERGYM_PYTHON=${python_bin}"
+echo "CYBERGYM_SOURCE_DIR=${repo_dir}"
+echo "VIRTUAL_ENV=${VIRTUAL_ENV:-}"
+export CYBERGYM_PYTHON="${python_bin}"
+export CYBERGYM_SOURCE_DIR="${repo_dir}"
+export REPO_DIR="${repo_dir}"
 export PYTHONPATH="${cybergym_repo_root}:${repo_dir}:${PYTHONPATH:-}"
 
 # 脚本使用说明
@@ -170,6 +175,106 @@ POC_SAVE_DIR="${OUT_ROOT}/${MODEL}/${run_id}/server_poc"
 # 本轮本 worker 输出目录：按 round_i 隔离
 OUT_DIR="${OUT_ROOT}/${MODEL}/${run_id}/${ROUND_I}/node${node_rank}/worker${local_rank}"
 mkdir -p "$OUT_DIR/logs" "$OUT_DIR/tmp" "$OUT_DIR/result"
+
+# Start one proxy per worker so concurrent tasks cannot mix capture roots.
+capture_proxy_pid=""
+capture_proxy_log_dir=""
+cleanup_capture_proxy() {
+  if [[ -n "${capture_proxy_pid}" ]] && kill -0 "${capture_proxy_pid}" 2>/dev/null; then
+    kill "${capture_proxy_pid}" 2>/dev/null || true
+  fi
+}
+trap cleanup_capture_proxy EXIT
+
+if [[ "${CAPTURE_PROXY_ENABLED:-false}" == "true" ]]; then
+  capture_proxy_script="${CAPTURE_PROXY_SCRIPT:-${cybergym_repo_root}/capture_proxy/proxy.py}"
+  capture_proxy_python="${CAPTURE_PROXY_PYTHON:-}"
+  if [[ -n "${capture_proxy_python}" ]]; then
+    if [[ ! -x "${capture_proxy_python}" ]]; then
+      echo "WARNING[worker-${global_rank}]: ignoring non-executable CAPTURE_PROXY_PYTHON: ${capture_proxy_python}" >&2
+      capture_proxy_python=""
+    elif ! "${capture_proxy_python}" -c 'import fastapi, httpx, uvicorn' >/dev/null 2>&1; then
+      echo "WARNING[worker-${global_rank}]: CAPTURE_PROXY_PYTHON lacks proxy dependencies; using CyberGym runtime Python" >&2
+      capture_proxy_python=""
+    fi
+  fi
+  capture_proxy_python="${capture_proxy_python:-${python_bin}}"
+  capture_proxy_base_port="${CAPTURE_PROXY_PORT:-31545}"
+  if ! [[ "${capture_proxy_base_port}" =~ ^[0-9]+$ ]] || (( capture_proxy_base_port < 1 || capture_proxy_base_port > 65535 )); then
+    echo "ERROR[worker-${global_rank}]: CAPTURE_PROXY_PORT must be between 1 and 65535: ${capture_proxy_base_port}" >&2
+    exit 1
+  fi
+  capture_proxy_port=$((capture_proxy_base_port + local_rank))
+  if (( capture_proxy_port > 65535 )); then
+    echo "ERROR[worker-${global_rank}]: capture proxy port exceeds 65535: base=${capture_proxy_base_port} local_rank=${local_rank}" >&2
+    exit 1
+  fi
+  capture_proxy_upstream="${CAPTURE_PROXY_UPSTREAM_URL:-http://${MASTER_SERVER_IP}:${LLM_SERVICE_PORT}}"
+  capture_proxy_log_dir="${OUT_DIR}/capture_logs"
+  mkdir -p "${capture_proxy_log_dir}"
+
+  if [[ ! -f "${capture_proxy_script}" ]]; then
+    echo "ERROR[worker-${global_rank}]: capture proxy script not found: ${capture_proxy_script}" >&2
+    exit 1
+  fi
+  if [[ ! -x "${capture_proxy_python}" ]]; then
+    echo "ERROR[worker-${global_rank}]: capture proxy Python not executable: ${capture_proxy_python}" >&2
+    exit 1
+  fi
+  if ! "${capture_proxy_python}" -c 'import fastapi, httpx, uvicorn' >/dev/null 2>&1; then
+    echo "ERROR[worker-${global_rank}]: capture proxy dependencies are unavailable in ${capture_proxy_python}" >&2
+    echo "       install capture_proxy/requirements.txt in the selected runtime" >&2
+    exit 1
+  fi
+  echo "CAPTURE_PROXY_MODE=per-worker"
+  echo "CAPTURE_PROXY_PORT=${capture_proxy_port}"
+  echo "CAPTURE_PROXY_PYTHON=${capture_proxy_python}"
+  echo "CAPTURE_PROXY_UPSTREAM_URL=${capture_proxy_upstream}"
+  "${capture_proxy_python}" --version
+  nohup "${capture_proxy_python}" "${capture_proxy_script}" \
+    --listen-host 0.0.0.0 \
+    --listen-port "${capture_proxy_port}" \
+    --upstream-url "${capture_proxy_upstream}" \
+    --log-dir "${capture_proxy_log_dir}" \
+    --timeout-seconds "${CAPTURE_PROXY_TIMEOUT:-300}" \
+    > "${capture_proxy_log_dir}/proxy_launch.log" 2>&1 &
+  capture_proxy_pid=$!
+  echo "${capture_proxy_pid}" > "${capture_proxy_log_dir}/proxy.pid"
+
+  proxy_ready=false
+  for _ in $(seq 1 "${CAPTURE_PROXY_STARTUP_TIMEOUT:-30}"); do
+    if ! kill -0 "${capture_proxy_pid}" 2>/dev/null; then
+      echo "ERROR[worker-${global_rank}]: capture proxy exited during startup; log=${capture_proxy_log_dir}/proxy_launch.log" >&2
+      tail -50 "${capture_proxy_log_dir}/proxy_launch.log" >&2 || true
+      exit 1
+    fi
+    if curl -fsS --max-time 2 "http://127.0.0.1:${capture_proxy_port}/healthz" \
+      > "${capture_proxy_log_dir}/healthz.json" 2>/dev/null; then
+      proxy_ready=true
+      break
+    fi
+    sleep 1
+  done
+  if [[ "${proxy_ready}" != true ]]; then
+    echo "ERROR[worker-${global_rank}]: capture proxy did not become ready; log=${capture_proxy_log_dir}/proxy_launch.log" >&2
+    tail -50 "${capture_proxy_log_dir}/proxy_launch.log" >&2 || true
+    exit 1
+  fi
+
+  export CAPTURE_LOG_DIR="${capture_proxy_log_dir}"
+  capture_proxy_base_url="http://${MASTER_SERVER_IP}:${capture_proxy_port}"
+  if [[ "${HARNESS_TYPE}" == "claude" ]]; then
+    export ANTHROPIC_BASE_URL="${capture_proxy_base_url}"
+  else
+    export LLM_BASE_URL="${capture_proxy_base_url}/v1"
+    export GLM_BASE_URL="${capture_proxy_base_url}/v1"
+    export OPENAI_BASE_URL="${capture_proxy_base_url}/v1"
+    export OPENCODE_BASE_URL="${capture_proxy_base_url}/v1"
+  fi
+  echo "CAPTURE_PROXY_READY=true"
+  echo "CAPTURE_LOG_DIR=${CAPTURE_LOG_DIR}"
+  echo "CAPTURE_PROXY_BASE_URL=${capture_proxy_base_url}"
+fi
 
 # run_cc 脚本路径，由上层环境变量传入，做合法性校验
 RUN_CC_SCRIPT=${RUN_CC_SCRIPT_PATH:-}

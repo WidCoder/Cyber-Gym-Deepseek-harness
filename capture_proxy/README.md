@@ -45,3 +45,12 @@ curl -fsS http://127.0.0.1:31545/healthz
 The raw capture is stored below `capture_logs/raw/completed/<capture_id>`.
 `state.json` is `complete` for a successfully terminated stream and `partial`
 for a transport error, client disconnect, or missing stream terminator.
+
+The proxy does not join multiple requests. Use the repository's offline
+`scripts/export_task_trajectories.py` after a run to aggregate complete
+request-level captures into task-level multi-turn JSONL.
+
+The distributed launcher starts one proxy per worker. Its
+`CAPTURE_PROXY_PORT` is the base port and the worker's local rank is added to
+it; its capture root is the worker output directory. This prevents concurrent
+workers from sharing time-windowed capture data.

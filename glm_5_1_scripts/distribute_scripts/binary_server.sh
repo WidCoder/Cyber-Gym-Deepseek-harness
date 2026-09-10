@@ -7,21 +7,15 @@ set -euo pipefail
 # Cybergym 源码仓库根目录（仓库内路径统一基于此拼接）
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cybergym_repo_root="${CYBERGYM_REPO_ROOT:-${ROOT_DIR:-$(cd -- "${script_dir}/../.." && pwd)}}"
-repo_dir="${CYBERGYM_SOURCE_DIR:-${REPO_DIR:-/gpfsprd/jt/2ab867e449cf41f1a037ff3c532f1bb5/chenmaojian/projects/benchmarks/cybergym-main}}"
-if [[ (! -d "${repo_dir}" || ! -d "${repo_dir}/cybergym") && -d "${cybergym_repo_root}/cybergym" ]]; then
-  repo_dir="${cybergym_repo_root}"
-fi
-python_bin="${CYBERGYM_PYTHON:-}"
-if [[ -z "${python_bin}" && -x "${repo_dir}/.venv/bin/python" ]]; then
-  python_bin="${repo_dir}/.venv/bin/python"
-fi
-if [[ -z "${python_bin}" ]]; then
-  python_bin="$(command -v python3 || command -v python || true)"
-fi
-if [[ -z "${python_bin}" || ! -x "${python_bin}" ]]; then
-  echo "ERROR: Python executable not found; set CYBERGYM_PYTHON" >&2
+runtime_helper="${cybergym_repo_root}/scripts/resolve_cybergym_runtime.sh"
+if [[ ! -f "${runtime_helper}" ]]; then
+  echo "ERROR: runtime helper not found: ${runtime_helper}" >&2
   exit 1
 fi
+source "${runtime_helper}"
+cybergym_resolve_runtime
+repo_dir="${CYBERGYM_RUNTIME_DIR}"
+python_bin="${CYBERGYM_RUNTIME_PYTHON}"
 if [[ -f "${repo_dir}/.venv/bin/activate" ]]; then
   source "${repo_dir}/.venv/bin/activate"
 fi

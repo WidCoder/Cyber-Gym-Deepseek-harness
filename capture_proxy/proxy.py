@@ -85,6 +85,9 @@ def create_app(settings: Settings, upstream_transport: Any = None) -> Any:
             follow_redirects=False,
             http2=False,
             transport=upstream_transport,
+            # The upstream URL is explicit; do not let cluster HTTP_PROXY
+            # settings reroute private GLM traffic through an external proxy.
+            trust_env=False,
         )
         try:
             yield

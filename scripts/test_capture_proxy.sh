@@ -38,6 +38,10 @@ if [[ ! -f "${repo_dir}/capture_proxy/proxy.py" ]]; then
 fi
 
 "${proxy_python}" -m py_compile "${repo_dir}/capture_proxy/capture_core.py" "${repo_dir}/capture_proxy/proxy.py"
+if ! "${proxy_python}" -c 'import fastapi, httpx, uvicorn' >/dev/null 2>&1; then
+  echo "ERROR: ${proxy_python} is missing proxy dependencies; install capture_proxy/requirements.txt" >&2
+  exit 1
+fi
 
 "${proxy_python}" "${repo_dir}/capture_proxy/proxy.py" \
   --listen-host 127.0.0.1 \
@@ -55,7 +59,8 @@ trap cleanup EXIT
 
 ready=false
 for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${port}/healthz" >"${capture_dir}/healthz.json"; then
+  if curl -fsS --max-time 2 "http://127.0.0.1:${port}/healthz" \
+      >"${capture_dir}/healthz.json" 2>/dev/null; then
     ready=true
     break
   fi

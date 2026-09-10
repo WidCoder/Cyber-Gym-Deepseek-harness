@@ -126,10 +126,14 @@ print("training:", v.get("training"))
 PY
 ```
 
-Expected capture conditions for a new run are `complete_count > 0` and
-`partial_count = 0` for successful calls. Each task also keeps
-`capture_manifest.json`, `trajectory.jsonl`, and `train.jsonl`; the manifest
-links every capture to the Harness log files and raw request/response paths.
+For a new run, a healthy task should have `execution.status=completed`,
+`verification.status=verified` or `completed_not_verified`, and
+`api_capture.complete_count > 0`. A task with `execution.status=failed` or
+`verification.status=pending` did not finish the normal Harness flow. A
+`partial_count > 0` means at least one captured response was interrupted and
+must not be used as a complete training turn. The result's
+`capture_manifest.json` links each request to the Harness logs and raw
+request/response paths.
 
 Count final exported records:
 
@@ -137,7 +141,27 @@ Count final exported records:
 find "$CYBERGYM_REPO_ROOT/output/glm-5.3-flash" -name train.jsonl -type f -exec wc -l {} +
 ```
 
-The current exporter writes one training record per complete API capture. It
-preserves each request's complete message history and the reconstructed
-assistant response; it does not merge all requests from one task into one
-record.
+The worker-level exporter writes one record per complete API request. For one
+multi-turn record per task, run the offline finalizer after the round:
+
+```bash
+RUN_DIR="${CYBERGYM_REPO_ROOT}/output/glm-5.3-flash/<experiment>/round1"
+"${CYBERGYM_PYTHON}" "${CYBERGYM_REPO_ROOT}/scripts/export_task_trajectories.py" \
+  --run-dir "${RUN_DIR}" \
+  --output "${RUN_DIR}/task_trajectories.jsonl" \
+  --report "${RUN_DIR}/task_trajectories.report.json" \
+  --only-verified
+```
+
+The finalizer uses each task manifest as the boundary, validates complete 2xx
+captures, preserves tool/reasoning messages, and joins later requests only
+when their normalized history exactly extends the previous conversation. The
+adjacent report explains skipped tasks. Use `--recover-terminal-sse`
+only for legacy runs created before commit `95bd83b`.
+
+For a one-command run summary:
+
+```bash
+"${CYBERGYM_PYTHON}" "${CYBERGYM_REPO_ROOT}/scripts/analyze_run.py" \
+  --run-dir "${RUN_DIR}"
+```
