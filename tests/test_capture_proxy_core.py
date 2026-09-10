@@ -87,6 +87,39 @@ class CaptureProxyCoreTest(unittest.TestCase):
             state = json.loads((directory_path / "state.json").read_text())
             self.assertEqual(state["state"], "partial")
 
+    def test_complete_openai_stream_stays_complete_after_client_disconnect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = RequestCapture(root)
+            capture.start_request(
+                method="POST",
+                path="/v1/chat/completions",
+                query="",
+                url="http://proxy/v1/chat/completions",
+                headers=[],
+                raw_body=b'{"messages":[],"stream":true}',
+                upstream_url="http://glm:31542/v1/chat/completions",
+                client_host=None,
+                client_port=None,
+            )
+            capture.start_response(
+                status_code=200,
+                headers=[("content-type", "text/event-stream")],
+                is_sse=True,
+            )
+            capture.append_response(
+                b'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n'
+                b"data: [DONE]\n\n"
+            )
+            capture.finalize(client_disconnected=True)
+
+            directory_path = next((root / "completed").iterdir())
+            state = json.loads((directory_path / "state.json").read_text())
+            response = json.loads((directory_path / "response.json").read_text())
+            self.assertEqual(state["state"], "complete")
+            self.assertTrue(response["stream_complete"])
+            self.assertTrue(response["client_disconnected"])
+
 
 if __name__ == "__main__":
     unittest.main()

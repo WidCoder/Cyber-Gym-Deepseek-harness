@@ -701,11 +701,19 @@ class RequestCapture:
         )
         write_json(self.paths.inflight_dir / "response.json", self.response_record)
 
-        if transport_error or client_disconnected:
-            state = "partial"
-        elif self._decoder is not None and not (
-            aggregation_complete or stream_complete
-        ):
+        if self._decoder is not None:
+            # A downstream client may close the connection immediately after
+            # receiving the terminal SSE event. In that case the relay can
+            # observe CancelledError/client_disconnected even though the
+            # complete upstream stream, including [DONE] or message_stop, is
+            # already persisted. The protocol terminal marker is authoritative
+            # for SSE completeness; a disconnect before it remains partial.
+            state = (
+                "complete"
+                if aggregation_complete or stream_complete
+                else "partial"
+            )
+        elif transport_error or client_disconnected:
             state = "partial"
         else:
             state = "complete"
