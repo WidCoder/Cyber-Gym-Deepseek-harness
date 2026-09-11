@@ -438,6 +438,7 @@ def export_task_trajectories(
     recover_terminal_sse: bool = False,
     output_format: str = "openai",
     allow_partial: bool = False,
+    quality_filter: bool = False,
 ) -> dict[str, Any]:
     if not run_dir.is_dir():
         raise SystemExit(f"run directory not found: {run_dir}")
@@ -450,7 +451,8 @@ def export_task_trajectories(
         if task is None:
             skipped.append({"result": str(result_path), "reason": error})
             continue
-        eligible, reason = _result_is_eligible(task, only_verified, include_failed)
+        effective_only_verified = only_verified or quality_filter
+        eligible, reason = _result_is_eligible(task, effective_only_verified, include_failed)
         if not eligible:
             skipped.append({"result": str(result_path), "task_id": task.task_id, "reason": reason})
             continue
@@ -491,10 +493,19 @@ def export_task_trajectories(
                     "errors": sequence_errors,
                 })
                 continue
+            verification = task.result.get("verification")
+            verification = copy.deepcopy(verification) if isinstance(verification, dict) else {"status": "unknown"}
+            task_info = task.result.get("task")
+            task_info = copy.deepcopy(task_info) if isinstance(task_info, dict) else {}
+            task_info.setdefault("task_id", task.task_id)
+            task_info.setdefault("source", _dataset(task.task_id))
             sample = {
                 "id": _sample_id(task.task_id, model, str(agent_kind), f"{_slug(task.agent_id)}-segment-{index}"),
+                "schema_version": "cybergym-agent-v1",
+                "task": task_info,
                 "messages": conversation,
                 "tools": copy.deepcopy(final_body.get("tools", [])) if isinstance(final_body.get("tools", []), list) else [],
+                "verification": verification,
                 "metadata": {
                     "task_id": task.task_id,
                     "agent_id": task.agent_id,
@@ -511,6 +522,7 @@ def export_task_trajectories(
                 },
             }
             sample["metadata"]["trajectory_complete"] = not sequence_errors
+            sample["metadata"]["quality_filter"] = quality_filter
             sample["metadata"]["tool_sequence_errors"] = sequence_errors
             if output_format == "swe-agent":
                 sample["messages"] = [_swe_agent_message(item) for item in sample["messages"]]
@@ -540,6 +552,7 @@ def export_task_trajectories(
             "recover_terminal_sse": recover_terminal_sse,
             "format": output_format,
             "allow_partial": allow_partial,
+            "quality_filter": quality_filter,
         },
     }
     target = report_path or output.with_name(output.stem + ".report.json")
@@ -557,6 +570,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--include-failed", action="store_true", help="allow execution.status=failed when captures themselves are complete")
     parser.add_argument("--format", choices=("openai", "swe-agent"), default="openai", help="output message/tool schema")
     parser.add_argument("--allow-partial", action="store_true", help="export segments with unresolved or unmatched tool calls")
+    parser.add_argument("--quality-filter", action="store_true", help="export only completed, verified, structurally valid task trajectories")
     parser.add_argument("--allow-shared-captures", action="store_true", help="allow a capture id referenced by multiple manifests; unsafe for strict datasets")
     parser.add_argument(
         "--recover-terminal-sse",
@@ -574,6 +588,7 @@ def main(argv: list[str] | None = None) -> int:
         recover_terminal_sse=args.recover_terminal_sse,
         output_format=args.format,
         allow_partial=args.allow_partial,
+        quality_filter=args.quality_filter,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
