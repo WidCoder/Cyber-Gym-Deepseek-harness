@@ -58,9 +58,9 @@ def summarize_captures(
         request_time = _timestamp(request.get("captured_at"))
         response_time = _timestamp(response.get("finished_at"))
         probe_time = response_time or request_time or item.stat().st_mtime
-        if start_time is not None and probe_time < start_time - 1:
+        if start_time is not None and probe_time < start_time:
             continue
-        if end_time is not None and request_time is not None and request_time > end_time + 1:
+        if end_time is not None and request_time is not None and request_time > end_time:
             continue
         result["request_count"] += 1
         result["capture_ids"].append(item.name)
@@ -96,9 +96,9 @@ def write_capture_manifest(
             request_time = _timestamp(request.get("captured_at"))
             response_time = _timestamp(response.get("finished_at"))
             probe_time = response_time or request_time or item.stat().st_mtime
-            if start_time is not None and probe_time < start_time - 1:
+            if start_time is not None and probe_time < start_time:
                 continue
-            if end_time is not None and request_time is not None and request_time > end_time + 1:
+            if end_time is not None and request_time is not None and request_time > end_time:
                 continue
             state = (_read(item / "state.json") or {}).get("state")
             captures.append(
