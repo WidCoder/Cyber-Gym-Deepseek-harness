@@ -466,6 +466,11 @@ class SSEDecoder:
                 payload = None
         if isinstance(payload, dict):
             self.aggregator.consume(payload)
+            # Anthropic Messages terminates with message_stop rather than
+            # OpenAI's data: [DONE]. Treat both protocol markers as a
+            # successfully completed stream.
+            if payload.get("type") == "message_stop":
+                self.done = True
 
         self.event_count += 1
         record: dict[str, Any] = {

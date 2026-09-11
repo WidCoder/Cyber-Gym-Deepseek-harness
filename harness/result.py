@@ -81,7 +81,7 @@ def write_result(
     manifest_path = log_dir / "capture_manifest.json"
     output = log_dir / "result.json"
     result: dict[str, Any] = {
-        "schema_version": "1.0",
+        "schema_version": "cybergym-agent-v1",
         "task": {
             "task_id": task.get("task_id"),
             "agent_id": task.get("agent_id"),
@@ -117,7 +117,11 @@ def write_result(
             "submitted_pocs": submitted,
             "artifacts": artifacts,
         },
-        "verification": {"status": "pending"},
+        "verification": {
+            "status": "unknown",
+            "flag_found": False,
+            "checker": None,
+        },
         "api_capture": {
             **capture_summary,
             "manifest": str(manifest_path),

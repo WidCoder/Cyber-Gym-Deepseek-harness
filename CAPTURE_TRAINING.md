@@ -135,3 +135,32 @@ independent proxy and capture root: `<worker-output>/capture_logs`, with port
 `CAPTURE_PROXY_PORT + local_rank`. The worker removes its proxy on exit, so the
 port can be reused by the next round. This per-worker ownership is required for
 reliable task association when several workers run concurrently.
+
+## Task-level output formats
+
+`scripts/export_training_data.py` is a round-level/debug exporter: one captured
+API request becomes one record with `metadata.sample_level=api_round`. Do not
+concatenate those files as the final task dataset.
+
+Use `scripts/export_task_trajectories.py` for final training data. It joins
+successive requests only when their normalized histories form a verified prefix,
+checks tool-call/tool-result pairing, and writes
+`metadata.sample_level=task_trajectory`. Incomplete tool sequences are skipped
+unless `--allow-partial` is explicitly supplied.
+
+The default `--format openai` preserves tool call IDs and OpenAI-compatible
+function objects. To produce the compact SWE-agent trajectory shape
+(`tool_calls[].name/arguments` and `OBSERVATION:\n...` tool messages), run:
+
+```bash
+python scripts/export_task_trajectories.py \
+  --run-dir /path/to/round1 \
+  --output /path/to/task_trajectories.jsonl \
+  --only-verified \
+  --format swe-agent
+```
+
+The SWE-agent view keeps provenance in `metadata`; consumers that require only
+`id`, `messages`, and `tools` may ignore that field. Always inspect the
+adjacent report for skipped captures, invalid tool sequences, shared capture
+IDs, and context-reset segments before training.

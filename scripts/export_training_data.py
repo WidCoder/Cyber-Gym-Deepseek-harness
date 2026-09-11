@@ -486,6 +486,7 @@ def export(
                     "dataset": _dataset(task_id),
                     "agent_kind": sample_agent_kind,
                     "api_format": "openai-compatible",
+                    "sample_level": "api_round",
                     "source_request": str(round_dir / "request.json"),
                     "source_response": str(round_dir / "response.json"),
                 },

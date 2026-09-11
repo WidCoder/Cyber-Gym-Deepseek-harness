@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/WidCoder/Cyber-Gym-Deepseek-harness/schemas/trajectory_v1.json",
+  "title": "CyberGym Agent Task Trajectory",
+  "type": "object",
+  "required": [
+    "id",
+    "schema_version",
+    "task",
+    "messages",
+    "verification",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "cybergym-agent-v1"
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "task_id"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "difficulty": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoning_content": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "function"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "function"
+                },
+                "function": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "arguments"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "arguments": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      }
+    },
+    "tools": {
+      "type": "array"
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "status",
+        "flag_found"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "verified",
+            "failed",
+            "unknown"
+          ]
+        },
+        "flag_found": {
+          "type": "boolean"
+        },
+        "checker": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verified_time": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "trajectory_complete"
+      ],
+      "properties": {
+        "trajectory_complete": {
+          "type": "boolean"
+        },
+        "sample_level": {
+          "const": "task_trajectory"
+        },
+        "capture_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
