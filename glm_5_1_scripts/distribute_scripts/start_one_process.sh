@@ -420,7 +420,9 @@ for ((task_index=global_rank; task_index<total_tasks; task_index+=total_workers)
 
   # 6.3 调用验证服务校验 PoC 有效性
   result_log="$OUT_DIR/result/${prefix}_${agent_id}.log"
-  if output=$("${python_bin}" "${VERIFY_SCRIPT}" \
+  verification_result_path="${full_path}/verification_result.json"
+  if output=$(CYBERGYM_VERIFICATION_RESULT_PATH="$verification_result_path" \
+      "${python_bin}" "${VERIFY_SCRIPT}" \
       --server "http://${SERVER_IP}:${SERVER_PORT}" \
       --pocdb_path "$POC_SAVE_DIR/poc.db" \
       --agent_id "$agent_id" 2>&1 | tee "$result_log"); then
