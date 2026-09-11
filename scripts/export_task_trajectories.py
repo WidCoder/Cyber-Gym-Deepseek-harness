@@ -269,6 +269,35 @@ def _tools_continue(previous: Any, current: Any) -> bool:
     return all(new.get(name) == definition for name, definition in old.items())
 
 
+def _canonical_message(message: dict[str, Any]) -> dict[str, Any]:
+    """Normalize harmless representation differences before prefix comparison."""
+    value = copy.deepcopy(message)
+    if value.get("content") is None:
+        value["content"] = ""
+    for call in value.get("tool_calls", []):
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function")
+        if not isinstance(function, dict):
+            continue
+        arguments = function.get("arguments")
+        if isinstance(arguments, str):
+            try:
+                function["arguments"] = json.dumps(
+                    json.loads(arguments),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            except json.JSONDecodeError:
+                pass
+    return value
+
+
+def _canonical_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [_canonical_message(item) for item in messages]
+
+
 def _continues(previous: CaptureRound, current: CaptureRound, conversation: list[dict[str, Any]]) -> bool:
     if previous.request_body.get("model") != current.request_body.get("model"):
         return False
@@ -276,7 +305,7 @@ def _continues(previous: CaptureRound, current: CaptureRound, conversation: list
         return False
     if len(current.history) < len(conversation):
         return False
-    return current.history[: len(conversation)] == conversation
+    return _canonical_messages(current.history[: len(conversation)]) == _canonical_messages(conversation)
 
 
 def _segments(captures: tuple[CaptureRound, ...]) -> list[tuple[list[CaptureRound], list[dict[str, Any]], dict[str, Any]]]:
@@ -298,6 +327,84 @@ def _segments(captures: tuple[CaptureRound, ...]) -> list[tuple[list[CaptureRoun
             conversation = copy.deepcopy(current.history)
             conversation.append(copy.deepcopy(current.assistant))
     result.append((rounds, conversation, rounds[-1].request_body))
+    return result
+
+
+def _validate_tool_sequence(messages: list[dict[str, Any]]) -> list[str]:
+    pending: dict[str, int] = {}
+    errors: list[str] = []
+    for index, message in enumerate(messages):
+        role = message.get("role")
+        if role == "assistant":
+            for call in message.get("tool_calls", []):
+                if not isinstance(call, dict):
+                    errors.append(f"message[{index}] has a non-object tool call")
+                    continue
+                call_id = call.get("id")
+                if not isinstance(call_id, str) or not call_id:
+                    errors.append(f"message[{index}] tool call is missing id")
+                elif call_id in pending:
+                    errors.append(f"duplicate tool call id: {call_id}")
+                else:
+                    pending[call_id] = index
+        elif role == "tool":
+            call_id = message.get("tool_call_id")
+            if not isinstance(call_id, str) or call_id not in pending:
+                errors.append(f"message[{index}] has unmatched tool result: {call_id!r}")
+            else:
+                del pending[call_id]
+    if pending:
+        errors.append("unresolved tool calls: " + ",".join(sorted(pending)))
+    return errors
+
+
+def _swe_agent_message(message: dict[str, Any]) -> dict[str, Any]:
+    role = message.get("role")
+    if role == "assistant":
+        reasoning = message.get("reasoning_content")
+        content = message.get("content")
+        parts = [item for item in (reasoning, content) if isinstance(item, str) and item]
+        result: dict[str, Any] = {"role": "assistant", "content": "\n".join(parts)}
+        calls: list[dict[str, Any]] = []
+        for call in message.get("tool_calls", []):
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function")
+            function = function if isinstance(function, dict) else call
+            arguments = function.get("arguments", {})
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    arguments = {"raw": arguments}
+            calls.append({"name": function.get("name", ""), "arguments": arguments})
+        if calls:
+            result["tool_calls"] = calls
+        return result
+    if role == "tool":
+        content = message.get("content")
+        if not isinstance(content, str):
+            content = json.dumps(content, ensure_ascii=False)
+        if not content.startswith("OBSERVATION:"):
+            content = "OBSERVATION:\n" + content
+        return {"role": "tool", "content": content}
+    return {"role": role, "content": message.get("content") or ""}
+
+
+def _swe_agent_tools(tools: Any) -> list[dict[str, Any]]:
+    if not isinstance(tools, list):
+        return []
+    result: list[dict[str, Any]] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        function = tool.get("function")
+        value = function if isinstance(function, dict) else tool
+        result.append({
+            "name": value.get("name", ""),
+            "description": value.get("description", ""),
+            "parameters": value.get("parameters", value.get("input_schema", {})),
+        })
     return result
 
 
@@ -329,6 +436,8 @@ def export_task_trajectories(
     include_failed: bool = False,
     allow_shared_captures: bool = False,
     recover_terminal_sse: bool = False,
+    output_format: str = "openai",
+    allow_partial: bool = False,
 ) -> dict[str, Any]:
     if not run_dir.is_dir():
         raise SystemExit(f"run directory not found: {run_dir}")
@@ -372,6 +481,16 @@ def export_task_trajectories(
         agent = agent if isinstance(agent, dict) else {}
         agent_kind = agent.get("agent_kind", "main")
         for index, (rounds, conversation, final_body) in enumerate(segments, start=1):
+            sequence_errors = _validate_tool_sequence(conversation)
+            if sequence_errors and not allow_partial:
+                skipped.append({
+                    "result": str(task.result_path),
+                    "task_id": task.task_id,
+                    "segment_index": index,
+                    "reason": "invalid tool sequence",
+                    "errors": sequence_errors,
+                })
+                continue
             sample = {
                 "id": _sample_id(task.task_id, model, str(agent_kind), f"{_slug(task.agent_id)}-segment-{index}"),
                 "messages": conversation,
@@ -390,6 +509,11 @@ def export_task_trajectories(
                     "source_manifest": str(task.manifest_path),
                 },
             }
+            sample["metadata"]["trajectory_complete"] = not sequence_errors
+            sample["metadata"]["tool_sequence_errors"] = sequence_errors
+            if output_format == "swe-agent":
+                sample["messages"] = [_swe_agent_message(item) for item in sample["messages"]]
+                sample["tools"] = _swe_agent_tools(sample["tools"])
             samples.append(sample)
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -413,6 +537,8 @@ def export_task_trajectories(
             "include_failed": include_failed,
             "allow_shared_captures": allow_shared_captures,
             "recover_terminal_sse": recover_terminal_sse,
+            "format": output_format,
+            "allow_partial": allow_partial,
         },
     }
     target = report_path or output.with_name(output.stem + ".report.json")
@@ -428,6 +554,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", type=Path, help="JSON report path; defaults beside --output")
     parser.add_argument("--only-verified", action="store_true", help="export only tasks whose verification.status is verified")
     parser.add_argument("--include-failed", action="store_true", help="allow execution.status=failed when captures themselves are complete")
+    parser.add_argument("--format", choices=("openai", "swe-agent"), default="openai", help="output message/tool schema")
+    parser.add_argument("--allow-partial", action="store_true", help="export segments with unresolved or unmatched tool calls")
     parser.add_argument("--allow-shared-captures", action="store_true", help="allow a capture id referenced by multiple manifests; unsafe for strict datasets")
     parser.add_argument(
         "--recover-terminal-sse",
@@ -443,6 +571,8 @@ def main(argv: list[str] | None = None) -> int:
         include_failed=args.include_failed,
         allow_shared_captures=args.allow_shared_captures,
         recover_terminal_sse=args.recover_terminal_sse,
+        output_format=args.format,
+        allow_partial=args.allow_partial,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
