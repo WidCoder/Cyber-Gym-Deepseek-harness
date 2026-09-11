@@ -88,7 +88,8 @@ for TASK_ID in "${task_ids[@]}"; do
     # 验证
     mkdir -p ${OUT_DIR}/result
     # 
-    OUTPUT=$(python3 scripts/verify_agent_result.py \
+    OUTPUT=$(CYBERGYM_VERIFICATION_RESULT_PATH="${full_path}/verification_result.json" \
+        python3 scripts/verify_agent_result.py \
         --server http://$SERVER_IP:$SERVER_PORT \
         --pocdb_path $POC_SAVE_DIR/poc.db \
         --agent_id ${suffix} | tee ${OUT_DIR}/result/${prefix}_${suffix}.log)
