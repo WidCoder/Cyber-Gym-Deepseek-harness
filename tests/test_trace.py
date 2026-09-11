@@ -18,6 +18,37 @@ class TraceNormalizationTest(unittest.TestCase):
         )
         self.assertEqual(event["message"]["content"], "真实的模型回复")
 
+    def test_nested_data_payload_is_extracted_and_preserved(self):
+        event = _normalize(
+            {
+                "type": "agent/inbox/spliced",
+                "data": {
+                    "items": [
+                        {
+                            "type": "assistant/chunk",
+                            "message": {"role": "assistant", "content": "嵌套的真实内容"},
+                        }
+                    ]
+                },
+            },
+            1,
+        )
+        self.assertEqual(event["message"]["content"], "嵌套的真实内容")
+        self.assertEqual(event["data"]["items"][0]["message"]["content"], "嵌套的真实内容")
+
+    def test_json_encoded_data_payload_is_extracted(self):
+        event = _normalize(
+            {
+                "type": "assistant/chunk",
+                "data": json.dumps(
+                    {"message": {"role": "assistant", "content": "JSON中的真实内容"}},
+                    ensure_ascii=False,
+                ),
+            },
+            1,
+        )
+        self.assertEqual(event["message"]["content"], "JSON中的真实内容")
+
     def test_session_joins_payload_text_not_labels(self):
         with tempfile.TemporaryDirectory() as directory:
             session = Path(directory) / "session.jsonl"

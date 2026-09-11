@@ -78,6 +78,24 @@ _TEXT_KEYS = (
     "output",
 )
 
+_STRUCTURAL_KEYS = {
+    "type",
+    "event",
+    "kind",
+    "raw_type",
+    "subtype",
+    "role",
+    "id",
+    "uuid",
+    "seq",
+    "time",
+    "timestamp",
+    "createdat",
+    "tool",
+    "tool_name",
+    "name",
+}
+
 
 def _metadata_values(value: Any) -> set[str]:
     """Collect event labels which must never become user-visible text."""
@@ -110,7 +128,12 @@ def _metadata_values(value: Any) -> set[str]:
     return result
 
 
-def _text(value: Any, depth: int = 0, blocked: set[str] | None = None) -> str:
+def _text(
+    value: Any,
+    depth: int = 0,
+    blocked: set[str] | None = None,
+    payload: bool = False,
+) -> str:
     """Extract actual textual payload, never structural event labels.
 
     DSH session records may contain a synthetic ``message.content`` such as
@@ -123,9 +146,22 @@ def _text(value: Any, depth: int = 0, blocked: set[str] | None = None) -> str:
         return ""
     blocked = blocked or set()
     if isinstance(value, str):
-        return "" if value in blocked else value
+        if value in blocked:
+            return ""
+        # Some session adapters serialize the nested event payload into the
+        # data field instead of emitting an object. Decode that representation
+        # before deciding that the event has no text.
+        stripped = value.strip()
+        if payload and stripped[:1] in {"{", "["}:
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                decoded = None
+            if isinstance(decoded, (dict, list)):
+                return _text(decoded, depth + 1, blocked, payload=True)
+        return value
     if isinstance(value, list):
-        return "".join(_text(item, depth + 1, blocked) for item in value)
+        return "".join(_text(item, depth + 1, blocked, payload=True) for item in value)
     if not isinstance(value, dict):
         return ""
 
@@ -140,9 +176,21 @@ def _text(value: Any, depth: int = 0, blocked: set[str] | None = None) -> str:
             if item not in blocked:
                 return item
             continue
-        result = _text(item, depth + 1, blocked)
+        result = _text(item, depth + 1, blocked, payload=True)
         if result:
             return result
+
+    # Some DSH events wrap the actual message several levels below ``data``
+    # (for example data.items[].message.content).  Recurse only inside a
+    # payload branch and skip structural fields; this preserves nested text
+    # without reviving the old bug that treated type/ID/tool names as text.
+    if payload:
+        for key, item in value.items():
+            if key.lower() in _STRUCTURAL_KEYS or key.lower() in _TEXT_KEYS:
+                continue
+            result = _text(item, depth + 1, blocked, payload=True)
+            if result:
+                return result
     return ""
 
 
@@ -203,6 +251,11 @@ def _normalize(record: dict[str, Any], index: int) -> dict[str, Any]:
         event["tool"] = str(tool)
     if command is not None and command != text:
         event["arguments"] = command
+    # Keep the concrete DSH payload when present.  This is intentionally
+    # separate from the normalized ``message`` field so nested protocol data
+    # is not lost if a future event shape is not recognized by _text().
+    if "data" in record:
+        event["data"] = record["data"]
     if kind == "unknown":
         event["raw_keys"] = sorted(record.keys())
     return event
