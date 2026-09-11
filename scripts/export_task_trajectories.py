@@ -501,6 +501,7 @@ def export_task_trajectories(
                     "model": model,
                     "dataset": _dataset(task.task_id),
                     "agent_kind": agent_kind,
+                    "sample_level": "task_trajectory",
                     "capture_ids": [item.capture_id for item in rounds],
                     "capture_count": len(rounds),
                     "segment_index": index,
