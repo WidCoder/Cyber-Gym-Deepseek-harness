@@ -68,7 +68,7 @@ class CaptureProxyCoreTest(unittest.TestCase):
             response = json.loads((directory_path / "response.json").read_text())
             self.assertEqual(state["state"], "complete")
             self.assertTrue(response["aggregation_complete"])
-            self.assertFalse(response["stream_complete"])
+            self.assertTrue(response["stream_complete"])
             self.assertEqual(response["protocol"], "anthropic-messages")
             self.assertEqual(response["message_id"], "msg_1")
             self.assertEqual(response["message"]["content"][0]["text"], "OK")
