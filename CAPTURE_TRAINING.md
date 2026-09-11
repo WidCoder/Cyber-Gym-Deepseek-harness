@@ -154,7 +154,7 @@ function objects. To produce the compact SWE-agent trajectory shape
 
 ```bash
 python scripts/export_task_trajectories.py \
-  --run-dir / /path/to/round1 \
+  --run-dir /path/to/round1 \
   --output /path/to/task_trajectories.jsonl \
   --only-verified \
   --format swe-agent
