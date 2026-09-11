@@ -62,23 +62,87 @@ def _iter_records(path: Path) -> Iterator[dict[str, Any]]:
             yield value
 
 
-def _text(value: Any, depth: int = 0) -> str:
-    if depth > 5 or value is None:
+_TEXT_KEYS = (
+    "text",
+    "thinking",
+    "reasoning",
+    "reasoning_content",
+    "output_text",
+    "partial_json",
+    "content",
+    "delta",
+    "data",
+    "payload",
+    "message",
+    "value",
+    "output",
+)
+
+
+def _metadata_values(value: Any) -> set[str]:
+    """Collect event labels which must never become user-visible text."""
+    if not isinstance(value, dict):
+        return set()
+    result = set()
+    for key in ("type", "event", "kind", "raw_type", "subtype"):
+        item = value.get(key)
+        if isinstance(item, str):
+            result.add(item)
+    # These are transport labels emitted by the DSH session adapter.  They
+    # are identifiers for an event, not the model's response text.
+    result.update(
+        {
+            "assistant/chunk",
+            "assistant/message",
+            "assistant/thinking",
+            "tool/call",
+            "tool/result",
+            "tool-call-chunks",
+            "tool-result-chunks",
+            "user/message",
+            "session/title",
+            "request/context",
+            "step/start",
+            "step/end",
+            "turn/end",
+        }
+    )
+    return result
+
+
+def _text(value: Any, depth: int = 0, blocked: set[str] | None = None) -> str:
+    """Extract actual textual payload, never structural event labels.
+
+    DSH session records may contain a synthetic ``message.content`` such as
+    ``assistant/chunk`` while the real text is nested under ``data`` or
+    ``delta``.  The old implementation returned the synthetic value and then
+    stopped searching.  It also recursively scanned arbitrary dictionary
+    values, which made type names and IDs appear as trajectory content.
+    """
+    if depth > 8 or value is None:
         return ""
+    blocked = blocked or set()
     if isinstance(value, str):
-        return value
+        return "" if value in blocked else value
     if isinstance(value, list):
-        return "".join(_text(item, depth + 1) for item in value)
-    if isinstance(value, dict):
-        for key in ("text", "thinking", "reasoning", "content", "message", "delta", "value", "output"):
-            if key in value:
-                result = _text(value[key], depth + 1)
-                if result:
-                    return result
-        for item in value.values():
-            result = _text(item, depth + 1)
-            if result:
-                return result
+        return "".join(_text(item, depth + 1, blocked) for item in value)
+    if not isinstance(value, dict):
+        return ""
+
+    # Look at semantic payload keys in a stable order.  Do not perform a
+    # blind ``value.values()`` fallback: that is what promoted event labels,
+    # roles, IDs, and tool names to response text.
+    for key in _TEXT_KEYS:
+        if key not in value:
+            continue
+        item = value[key]
+        if key == "content" and isinstance(item, str):
+            if item not in blocked:
+                return item
+            continue
+        result = _text(item, depth + 1, blocked)
+        if result:
+            return result
     return ""
 
 
@@ -123,7 +187,7 @@ def _kind(record: dict[str, Any]) -> str:
 def _normalize(record: dict[str, Any], index: int) -> dict[str, Any]:
     kind = _kind(record)
     raw_type = str(record.get("type") or record.get("event") or record.get("kind") or "unknown")
-    text = _text(record)
+    text = _text(record, blocked=_metadata_values(record))
     tool = _find_value(record, {"tool", "tool_name", "name"})
     command = _find_value(record, {"command", "cmd", "arguments", "input", "params"})
     timestamp = record.get("time", record.get("timestamp"))
