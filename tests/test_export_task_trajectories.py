@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.export_task_trajectories import export_task_trajectories
+from scripts.export_task_trajectories import (
+    _swe_agent_message,
+    _swe_agent_tools,
+    _validate_tool_sequence,
+    export_task_trajectories,
+)
 
 
 def write_json(path: Path, value: object) -> None:
@@ -195,6 +200,55 @@ class TaskTrajectoryExportTest(unittest.TestCase):
                 run, output, recover_terminal_sse=True
             )
             self.assertEqual(report["exported_samples"], 1)
+
+
+    def test_swe_agent_schema_matches_reference_trajectory(self):
+        assistant = _swe_agent_message({
+            "role": "assistant",
+            "content": "run it",
+            "reasoning_content": "inspect first",
+            "tool_calls": [{
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "arguments": "{\"command\":\"pwd\"}",
+                },
+            }],
+        })
+        tool = _swe_agent_message({
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "/workspace",
+        })
+        definitions = _swe_agent_tools([{
+            "name": "bash",
+            "description": "run a command",
+            "input_schema": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+            },
+        }])
+        self.assertEqual(assistant["content"], "inspect first\nrun it")
+        self.assertEqual(
+            assistant["tool_calls"],
+            [{"name": "bash", "arguments": {"command": "pwd"}}],
+        )
+        self.assertEqual(tool, {"role": "tool", "content": "OBSERVATION:\n/workspace"})
+        self.assertEqual(definitions[0]["name"], "bash")
+        self.assertIn("parameters", definitions[0])
+
+    def test_tool_sequence_rejects_unresolved_call(self):
+        errors = _validate_tool_sequence([{
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "bash", "arguments": "{}"},
+            }],
+        }])
+        self.assertEqual(errors, ["unresolved tool calls: call_1"])
 
 
 if __name__ == "__main__":
